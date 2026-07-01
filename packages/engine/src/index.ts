@@ -3,3 +3,4 @@ export * from "./types";
 export * from "./graph";
 export * from "./filter";
 export * from "./move";
+export * from "./journal";
