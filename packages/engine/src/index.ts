@@ -5,3 +5,4 @@ export * from "./filter";
 export * from "./move";
 export * from "./journal";
 export * from "./executor";
+export * from "./classify";
