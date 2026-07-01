@@ -6,3 +6,4 @@ export * from "./move";
 export * from "./journal";
 export * from "./executor";
 export * from "./classify";
+export * from "./queue";
