@@ -39,6 +39,10 @@ export class FolderWatcher {
         // file vanished between event and stat — nothing to do
       }
     });
+    w.on("error", (_err: unknown) => {
+      // swallow filesystem errors (e.g. watched directory deleted or permission
+      // denied) so the process does not crash on an unhandled 'error' event
+    });
     this.watchers.push(w);
   }
 
