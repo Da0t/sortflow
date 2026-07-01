@@ -1,0 +1,12 @@
+{
+  "name": "sortflow",
+  "private": true,
+  "scripts": {
+    "test": "pnpm -r test",
+    "check": "biome check ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  },
+  "packageManager": "pnpm@10.4.0"
+}
