@@ -9,3 +9,4 @@ export * from "./classify";
 export * from "./queue";
 export * from "./route";
 export * from "./proposals";
+export * from "./watcher";
