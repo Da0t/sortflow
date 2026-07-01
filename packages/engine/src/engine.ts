@@ -1,0 +1,180 @@
+import { randomUUID } from "node:crypto";
+import { EventEmitter } from "node:events";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { type Classifier, OllamaClassifier } from "./classify";
+import { MoveFailedError, executeMove, undoMove } from "./executor";
+import { nodeById, validatePipeline } from "./graph";
+import { Journal } from "./journal";
+import { expandDestination } from "./move";
+import { ProposalStore } from "./proposals";
+import { ClassifyQueue } from "./queue";
+import { routeFile } from "./route";
+import type {
+  IncomingFile,
+  JournalEntry,
+  MoveConfig,
+  Pipeline,
+  Proposal,
+  WatchConfig,
+} from "./types";
+import { FolderWatcher, type WatcherOptions } from "./watcher";
+
+export interface EngineOptions {
+  dataDir: string;
+  classifier?: Classifier;
+  watcherOptions?: WatcherOptions;
+  cooldownMs?: number;
+  now?: () => number;
+}
+
+export type NodeStatusLevel = "ok" | "warning" | "error";
+
+export class Engine extends EventEmitter {
+  readonly journal: Journal;
+  readonly proposalStore: ProposalStore;
+  private classifier: Classifier;
+  private queue: ClassifyQueue;
+  private watcher: FolderWatcher;
+  private pipeline: Pipeline = { nodes: [], edges: [] };
+  private now: () => number;
+
+  constructor(opts: EngineOptions) {
+    super();
+    this.now = opts.now ?? Date.now;
+    this.journal = new Journal(join(opts.dataDir, "journal.jsonl"));
+    this.proposalStore = new ProposalStore(
+      join(opts.dataDir, "proposals.json"),
+    );
+    this.classifier = opts.classifier ?? new OllamaClassifier();
+    this.queue = new ClassifyQueue(this.classifier, opts.cooldownMs ?? 2000);
+    this.watcher = new FolderWatcher((nodeId, file) => {
+      void this.handleFile(nodeId, file);
+    }, opts.watcherOptions);
+  }
+
+  async start(pipeline: Pipeline): Promise<void> {
+    const problems = validatePipeline(pipeline);
+    if (problems.length > 0)
+      throw new Error(`invalid pipeline: ${problems.join("; ")}`);
+    this.pipeline = pipeline;
+    await this.journal.reconcile(this.now());
+    await this.proposalStore.load();
+    for (const node of pipeline.nodes) {
+      if (node.kind === "watch")
+        this.watcher.watch(node.id, node.config as WatchConfig);
+    }
+    await this.reportClassifierHealth();
+  }
+
+  private async reportClassifierHealth(): Promise<void> {
+    const classifyNodes = this.pipeline.nodes.filter(
+      (n) => n.kind === "classify",
+    );
+    if (classifyNodes.length === 0) return;
+    const ok =
+      this.classifier instanceof OllamaClassifier
+        ? await this.classifier.ping()
+        : true;
+    for (const node of classifyNodes) {
+      this.emit(
+        "nodeStatus",
+        node.id,
+        ok ? "ok" : "warning",
+        ok ? undefined : "Ollama unreachable — files will route to unsure",
+      );
+    }
+  }
+
+  async stop(): Promise<void> {
+    await this.watcher.close();
+  }
+
+  private async handleFile(
+    watchNodeId: string,
+    file: IncomingFile,
+  ): Promise<void> {
+    const route = await routeFile(
+      this.pipeline,
+      watchNodeId,
+      file,
+      (f, cfg) => this.queue.enqueue(f, cfg),
+      this.now(),
+    );
+    if (!route.moveNodeId) return;
+    const moveNode = nodeById(this.pipeline, route.moveNodeId);
+    if (!moveNode) return;
+    const cfg = moveNode.config as MoveConfig;
+    const destDir = expandDestination(cfg.destination, {
+      category: route.category,
+      date: new Date(this.now()),
+      ext: file.ext,
+      home: homedir(),
+    });
+    const proposal = await this.proposalStore.add(
+      {
+        filePath: file.path,
+        fileName: file.name,
+        destDir,
+        moveNodeId: route.moveNodeId,
+        routeNodeIds: route.nodePath,
+      },
+      this.now(),
+    );
+    this.emit("proposal", proposal);
+    if (cfg.auto) await this.approve(proposal.id);
+  }
+
+  async approve(proposalId: string): Promise<void> {
+    const p = this.proposalStore.get(proposalId);
+    if (!p || p.status !== "pending") return;
+    await this.proposalStore.setStatus(proposalId, "approved");
+    try {
+      const entry = await executeMove(
+        {
+          id: proposalId,
+          from: p.filePath,
+          toDir: p.destDir,
+          moveNodeId: p.moveNodeId,
+        },
+        this.journal,
+        { now: this.now },
+      );
+      await this.proposalStore.setStatus(proposalId, "executed");
+      this.emit(
+        "executed",
+        this.proposalStore.get(proposalId) as Proposal,
+        entry,
+      );
+    } catch (err) {
+      const message =
+        err instanceof MoveFailedError ? err.message : String(err);
+      await this.proposalStore.setStatus(proposalId, "failed", message);
+      this.emit(
+        "stuck",
+        this.proposalStore.get(proposalId) as Proposal,
+        message,
+      );
+    }
+  }
+
+  async reject(proposalId: string): Promise<void> {
+    await this.proposalStore.setStatus(proposalId, "rejected");
+  }
+
+  async undo(journalEntryId: string): Promise<JournalEntry> {
+    return undoMove(journalEntryId, this.journal, { now: this.now });
+  }
+
+  listProposals(): Proposal[] {
+    return this.proposalStore.list();
+  }
+
+  async listJournal(): Promise<JournalEntry[]> {
+    return [...(await this.journal.latestById()).values()];
+  }
+
+  approvalStreak(moveNodeId: string): number {
+    return this.proposalStore.approvalStreak(moveNodeId);
+  }
+}
