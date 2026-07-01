@@ -7,3 +7,4 @@ export * from "./journal";
 export * from "./executor";
 export * from "./classify";
 export * from "./queue";
+export * from "./route";
