@@ -20,15 +20,21 @@ export class Journal {
   }
 
   async readAll(): Promise<JournalEntry[]> {
+    let raw: string;
     try {
-      const raw = await readFile(this.filePath, "utf8");
-      return raw
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => JSON.parse(line) as JournalEntry);
+      raw = await readFile(this.filePath, "utf8");
     } catch {
       return [];
     }
+    const entries: JournalEntry[] = [];
+    for (const line of raw.split("\n").filter(Boolean)) {
+      try {
+        entries.push(JSON.parse(line) as JournalEntry);
+      } catch {
+        // Skip malformed / truncated lines (crash artifacts)
+      }
+    }
+    return entries;
   }
 
   async latestById(): Promise<Map<string, JournalEntry>> {

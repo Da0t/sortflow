@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { appendFile, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -45,6 +45,18 @@ describe("Journal", () => {
     const latest = await journal.latestById();
     expect(latest.get("a")?.status).toBe("done");
     expect(latest.get("b")?.status).toBe("intent");
+  });
+
+  it("skips a malformed/truncated line and still returns all valid entries", async () => {
+    const { journal, dir } = await tempJournal();
+    await journal.append(entry({ id: "first" }));
+    await journal.append(entry({ id: "second", status: "done", ts: 2 }));
+    // Simulate a crash mid-write by appending a truncated JSON fragment
+    const filePath = join(dir, "sub", "journal.jsonl");
+    await appendFile(filePath, '{"id":"crash","ts":3,"from":"\n', "utf8");
+    await journal.append(entry({ id: "third", status: "done", ts: 4 }));
+    const all = await journal.readAll();
+    expect(all.map((e) => e.id)).toEqual(["first", "second", "third"]);
   });
 
   it("reconcile marks dangling intents done when the file arrived, failed when not", async () => {
