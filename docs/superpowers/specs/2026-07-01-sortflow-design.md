@@ -28,6 +28,8 @@ trust to run automatically. Every move is journaled and undoable.
 - Rename templating beyond destination-path tokens
 - Duplicate detection
 - Sweeping/organizing pre-existing files (v1 handles *incoming* files only)
+- Unsupervised clustering / category discovery — see "Clustering roadmap";
+  v1 groups similar files via the user's named categories in AI Classify
 - Cloud AI providers (design leaves a plug-in seam, not built in v1)
 - Windows/Linux packaged builds (engine is cross-platform; CI builds macOS only)
 - Full Electron end-to-end test suite
@@ -95,6 +97,34 @@ CLI/daemon frontend reuse it later.
 - Crash mid-move: journal intent entry remains; on startup, unconfirmed
   intents are reconciled (file at destination? mark done; still at source?
   mark failed) so the journal never lies.
+
+## Performance & thermals (hard requirement)
+
+The app must never meaningfully heat the machine:
+
+- **Event-driven, never polling.** chokidar rides macOS FSEvents; with no
+  incoming files the app sits at ~0% CPU. No background disk scanning or
+  indexing in v1.
+- **Throttled classification queue.** Ollama jobs run strictly one at a time
+  with a cooldown between jobs; a bulk drop (30 files unzipped) is worked
+  through gently rather than pinning the CPU. The default model is small
+  (3B), each job runs seconds, and Ollama's keep-alive unloads the model
+  after idle.
+- **UI cost only when visible.** React Flow animations run only while the
+  editor window is open; tray-only mode renders nothing.
+- Acceptance check: sorting a 20-file drop must not sustain high CPU for
+  more than brief model bursts, and idle CPU must stay ~0%.
+
+## Clustering roadmap
+
+- **v1**: AI Classify clusters incoming similar files into the user's named
+  categories; everything else accumulates in the `unsure` pile.
+- **v2 (designed-for seam)**: "Suggest categories" — local embeddings over
+  the unsure pile (and later, sweep mode over existing folders) find groups
+  of similar files and propose a new category + pipeline wiring ("14 files
+  look like receipts — create Receipts?"). Runs as an on-demand, throttled
+  batch job so it obeys the thermals requirement. Deferred from v1 because
+  it is the most compute-hungry feature and needs the embedding pipeline.
 
 ## Testing
 
