@@ -28,9 +28,11 @@ import { readFolderDragPath, setFolderDragData } from "../lib/folderDrop";
 import { useFlowStore } from "../store";
 
 const HOME = "~";
-/** Column cascade: each opened folder's contents stack in the next column. */
+/** Cascade tree: each opened folder's contents stack in the next column,
+ * vertically centered on their parent. */
 const COL_W = 270;
 const ROW_H = 46;
+const NODE_H = 36;
 const MAX_ROWS = 60;
 
 const HIDDEN_KEY = "sf-files-hidden-kinds";
@@ -167,13 +169,12 @@ type BubbleData = {
   path: string;
   name: string;
   isRoot: boolean;
-  col: number;
   open: boolean;
   count: number | null;
-  onOpen: (path: string, col: number) => void;
+  onOpen: (path: string) => void;
   onDropInto: (dest: string, e: React.DragEvent) => void;
   onTrash: (path: string, name: string) => void;
-  onStartCreate: (path: string, col: number) => void;
+  onStartCreate: (path: string) => void;
   onHideToggle: (path: string) => void;
   hidden: boolean;
   dropTarget: string | null;
@@ -208,9 +209,9 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
       }`}
       title={data.path}
       draggable={!data.isRoot}
-      onClick={() => data.onOpen(data.path, data.col)}
+      onClick={() => data.onOpen(data.path)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") data.onOpen(data.path, data.col);
+        if (e.key === "Enter") data.onOpen(data.path);
       }}
       onDragStart={(e) => {
         setFolderDragData(e.dataTransfer, data.path);
@@ -240,7 +241,7 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
           title="New folder inside"
           onClick={(e) => {
             e.stopPropagation();
-            data.onStartCreate(data.path, data.col);
+            data.onStartCreate(data.path);
           }}
         >
           <FolderPlus size={12} strokeWidth={2} aria-hidden="true" />
@@ -348,8 +349,8 @@ export function FilesView() {
   const [entriesByPath, setEntriesByPath] = useState<Record<string, FsEntry[]>>(
     {},
   );
-  /** The trail of opened folders, left to right. */
-  const [chain, setChain] = useState<string[]>([]);
+  /** Every folder currently opened — multiple branches welcome. */
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
@@ -409,17 +410,20 @@ export function FilesView() {
     [entriesByPath, hiddenKinds, hiddenPaths, showHidden],
   );
 
-  /** Open a folder's contents in the column beside it; clicking the open
-   * folder again folds the trail back to that point. */
+  /** Toggle a folder open (contents in the next column) or fold its branch. */
   const onOpen = useCallback(
-    (path: string, col: number) => {
-      if (path === HOME) {
-        setChain([]);
-        return;
-      }
-      setChain((prev) => {
-        if (prev[col] === path) return prev.slice(0, col); // fold shut
-        return [...prev.slice(0, col), path];
+    (path: string) => {
+      if (path === HOME) return;
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (next.has(path)) {
+          for (const p of prev) {
+            if (p === path || p.startsWith(`${path}/`)) next.delete(p);
+          }
+        } else {
+          next.add(path);
+        }
+        return next;
       });
       void load(path);
     },
@@ -428,10 +432,10 @@ export function FilesView() {
 
   const refreshAll = useCallback(() => {
     void load(HOME);
-    for (const p of chain) {
+    for (const p of expanded) {
       void load(p);
     }
-  }, [chain, load]);
+  }, [expanded, load]);
 
   const onDropInto = useCallback(
     async (dest: string, e: React.DragEvent) => {
@@ -461,10 +465,12 @@ export function FilesView() {
       const result = await api.trashEntry(path);
       setError(result.error);
       if (!result.error) {
-        setChain((prev) => {
-          const idx = prev.indexOf(path);
-          return idx === -1 ? prev : prev.slice(0, idx);
-        });
+        setExpanded(
+          (prev) =>
+            new Set(
+              [...prev].filter((p) => p !== path && !p.startsWith(`${path}/`)),
+            ),
+        );
       }
       refreshAll();
     },
@@ -472,13 +478,13 @@ export function FilesView() {
   );
 
   const onStartCreate = useCallback(
-    (path: string, col: number) => {
+    (path: string) => {
       setCreatingIn(path);
       setNewName("");
       // Open the folder so the new folder's column is visible.
       if (path !== HOME) {
-        setChain((prev) =>
-          prev[col] === path ? prev : [...prev.slice(0, col), path],
+        setExpanded((prev) =>
+          prev.has(path) ? prev : new Set(prev).add(path),
         );
         void load(path);
       }
@@ -505,40 +511,35 @@ export function FilesView() {
     const nodes: AnyNode[] = [];
     const edges: Edge[] = [];
 
-    // The Home box, then one column per opened folder in the trail.
-    nodes.push({
-      id: HOME,
-      type: "bubble",
-      position: { x: 0, y: 0 },
-      draggable: false,
-      data: {
-        path: HOME,
-        name: "Home",
-        isRoot: true,
-        col: -1,
-        open: true,
-        count: visibleEntries(HOME)?.length ?? null,
-        onOpen,
-        onDropInto,
-        onTrash,
-        onStartCreate,
-        onHideToggle,
-        hidden: false,
-        dropTarget,
-      },
-    });
+    const rowsOf = (parent: string): FsEntry[] =>
+      (visibleEntries(parent) ?? []).slice(0, MAX_ROWS);
+    const extraOf = (parent: string): number =>
+      Math.max(0, (visibleEntries(parent)?.length ?? 0) - MAX_ROWS);
+    const isOpen = (path: string) => path === HOME || expanded.has(path);
 
-    const parents = [HOME, ...chain];
-    for (let col = 0; col < parents.length; col++) {
-      const parent = parents[col];
-      const x = (col + 1) * COL_W;
-      let row = 0;
+    /** Total height of an entry's row, including its open subtree. */
+    const subH = (entry: FsEntry): number => {
+      if (!entry.isDirectory || !isOpen(entry.path)) return ROW_H;
+      return Math.max(ROW_H, blockH(entry.path));
+    };
 
+    /** Height of a folder's children block (creator + rows + overflow). */
+    const blockH = (parent: string): number => {
+      let h = 0;
+      if (creatingIn === parent) h += ROW_H;
+      for (const entry of rowsOf(parent)) h += subH(entry);
+      if (extraOf(parent) > 0) h += ROW_H;
+      return Math.max(ROW_H, h);
+    };
+
+    /** Lay out a folder's children column, centered rows, subtrees right. */
+    const placeChildren = (parent: string, x: number, yTop: number) => {
+      let y = yTop;
       if (creatingIn === parent) {
         nodes.push({
           id: "creator",
           type: "creator",
-          position: { x, y: row * ROW_H },
+          position: { x, y: y + (ROW_H - NODE_H) / 2 },
           draggable: false,
           zIndex: 10,
           data: {
@@ -557,24 +558,22 @@ export function FilesView() {
           target: "creator",
           style: { strokeDasharray: "4 3" },
         });
-        row++;
+        y += ROW_H;
       }
-
-      const entries = visibleEntries(parent) ?? [];
-      const shown = entries.slice(0, MAX_ROWS);
-      for (const entry of shown) {
+      for (const entry of rowsOf(parent)) {
+        const h = subH(entry);
+        const nodeY = y + (h - NODE_H) / 2;
         if (entry.isDirectory) {
           nodes.push({
             id: entry.path,
             type: "bubble",
-            position: { x, y: row * ROW_H },
+            position: { x, y: nodeY },
             draggable: false,
             data: {
               path: entry.path,
               name: entry.name,
               isRoot: false,
-              col,
-              open: chain[col] === entry.path,
+              open: expanded.has(entry.path),
               count: visibleEntries(entry.path)?.length ?? null,
               onOpen,
               onDropInto,
@@ -585,11 +584,14 @@ export function FilesView() {
               dropTarget,
             },
           });
+          if (expanded.has(entry.path)) {
+            placeChildren(entry.path, x + COL_W, y);
+          }
         } else {
           nodes.push({
             id: entry.path,
             type: "filechip",
-            position: { x, y: row * ROW_H },
+            position: { x, y: nodeY },
             draggable: false,
             data: { entry },
           });
@@ -600,28 +602,52 @@ export function FilesView() {
           sourceHandle: "side",
           target: entry.path,
         });
-        row++;
+        y += h;
       }
-      if (entries.length > shown.length) {
+      if (extraOf(parent) > 0) {
         nodes.push({
           id: `more-${parent}`,
           type: "filechip",
-          position: { x, y: row * ROW_H },
+          position: { x, y: y + (ROW_H - NODE_H) / 2 },
           draggable: false,
           data: {
             entry: {
-              name: `+${entries.length - shown.length} more`,
+              name: `+${extraOf(parent)} more`,
               path: parent,
               isDirectory: false,
             },
           },
         });
       }
-    }
+    };
+
+    // Home sits centered on its whole tree; branches cascade rightward.
+    const total = blockH(HOME);
+    nodes.push({
+      id: HOME,
+      type: "bubble",
+      position: { x: 0, y: (total - NODE_H) / 2 },
+      draggable: false,
+      data: {
+        path: HOME,
+        name: "Home",
+        isRoot: true,
+        open: true,
+        count: visibleEntries(HOME)?.length ?? null,
+        onOpen,
+        onDropInto,
+        onTrash,
+        onStartCreate,
+        onHideToggle,
+        hidden: false,
+        dropTarget,
+      },
+    });
+    placeChildren(HOME, COL_W, 0);
 
     return { nodes, edges };
   }, [
-    chain,
+    expanded,
     dropTarget,
     creatingIn,
     newName,
@@ -638,14 +664,14 @@ export function FilesView() {
 
   // Prefetch entries for visible folders so counts fill in.
   useEffect(() => {
-    for (const parent of [HOME, ...chain]) {
+    for (const parent of [HOME, ...expanded]) {
       for (const entry of entriesByPath[parent] ?? []) {
         if (entry.isDirectory && entriesByPath[entry.path] === undefined) {
           void load(entry.path);
         }
       }
     }
-  }, [chain, entriesByPath, load]);
+  }, [expanded, entriesByPath, load]);
 
   return (
     <div className="sf-files">
@@ -659,9 +685,9 @@ export function FilesView() {
           Pipelines
         </button>
         <span className="sf-files-title">
-          Click a folder to open it in the next column — the highlighted trail
-          is your path back. Drag any box onto a folder to move it; undo in
-          History.
+          Click folders to open them beside their parent — open as many branches
+          as you like; highlighted boxes are your trail back. Drag any box onto
+          a folder to move it; undo in History.
         </span>
         <button
           type="button"

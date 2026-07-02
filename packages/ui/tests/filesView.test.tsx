@@ -7,16 +7,21 @@ import { useFlowStore } from "../src/store";
 
 const HOME_ENTRIES: FsEntry[] = [
   { name: "Documents", path: "/u/Documents", isDirectory: true },
+  { name: "Projects", path: "/u/Projects", isDirectory: true },
   { name: "report.pdf", path: "/u/report.pdf", isDirectory: false },
 ];
 const DOCS_ENTRIES: FsEntry[] = [
   { name: "School", path: "/u/Documents/School", isDirectory: true },
   { name: "essay.txt", path: "/u/Documents/essay.txt", isDirectory: false },
 ];
+const PROJECTS_ENTRIES: FsEntry[] = [
+  { name: "app.ts", path: "/u/Projects/app.ts", isDirectory: false },
+];
 
 function mockListing() {
   vi.spyOn(api, "listEntries").mockImplementation(async (path: string) => {
     if (path === "/u/Documents") return DOCS_ENTRIES;
+    if (path === "/u/Projects") return PROJECTS_ENTRIES;
     if (path === "~") return HOME_ENTRIES;
     return [];
   });
@@ -51,6 +56,24 @@ describe("FilesView (column cascade)", () => {
     expect(
       container.querySelector(".sf-bubble-open[title='/u/Documents']"),
     ).toBeTruthy();
+  });
+
+  it("multiple branches can be open at the same time", async () => {
+    mockListing();
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    fireEvent.click(
+      container.querySelector('[title="/u/Documents"]') as HTMLElement,
+    );
+    await screen.findByText("essay.txt");
+    fireEvent.click(
+      container.querySelector('[title="/u/Projects"]') as HTMLElement,
+    );
+    await screen.findByText("app.ts");
+    // Both branches stay open simultaneously.
+    expect(screen.getByText("essay.txt")).toBeTruthy();
+    expect(screen.getByText("app.ts")).toBeTruthy();
+    expect(container.querySelectorAll(".sf-bubble-open")).toHaveLength(3); // Home + both
   });
 
   it("clicking the open folder again folds the trail back", async () => {
