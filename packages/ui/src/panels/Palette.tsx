@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import { api } from "../bridge";
 import { useFlowStore } from "../store";
 import { FolderTree } from "./FolderTree";
+import { GenerateSection } from "./GenerateSection";
 
 const KINDS: Array<{ kind: NodeKind; label: string; icon: ReactElement }> = [
   {
@@ -156,6 +157,7 @@ export function Palette({ onAutoSetupResult, onAutoSetupError }: PaletteProps) {
         onResult={onAutoSetupResult ?? (() => {})}
         onError={onAutoSetupError ?? (() => {})}
       />
+      <GenerateSection />
       <span className="sf-palette-label" style={{ marginTop: "8px" }}>
         Nodes
       </span>

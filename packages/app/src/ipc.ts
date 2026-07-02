@@ -3,6 +3,7 @@ import os from "node:os";
 import { join } from "node:path";
 import {
   Engine,
+  OllamaGenerator,
   type Pipeline,
   type PipelineLibrary,
   detectWatchOverlaps,
@@ -87,6 +88,24 @@ export function registerIpc(
     if (problems.length > 0) return { problems };
     return { problems: [], preview: await previewPipeline(pipeline) };
   });
+
+  ipcMain.handle(
+    "pipeline:generate",
+    async (_evt, description: string, model?: string) => {
+      try {
+        const pipeline = await new OllamaGenerator().generate(
+          description,
+          model ?? "llama3.2:3b",
+        );
+        return { pipeline, error: null };
+      } catch (err) {
+        return {
+          pipeline: null,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
 
   ipcMain.handle("pipelines:list", () => library.summary());
 

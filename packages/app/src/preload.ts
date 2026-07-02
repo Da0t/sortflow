@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("sortflow", {
   getPipeline: () => ipcRenderer.invoke("pipeline:get"),
   setPipeline: (p: unknown) => ipcRenderer.invoke("pipeline:set", p),
   previewPipeline: (p: unknown) => ipcRenderer.invoke("pipeline:preview", p),
+  generatePipeline: (description: string, model?: string) =>
+    ipcRenderer.invoke("pipeline:generate", description, model),
   listProposals: () => ipcRenderer.invoke("proposals:list"),
   approve: (id: string) => ipcRenderer.invoke("proposals:approve", id),
   reject: (id: string) => ipcRenderer.invoke("proposals:reject", id),

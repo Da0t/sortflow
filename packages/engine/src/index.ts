@@ -5,6 +5,7 @@ export * from "./autosetup";
 export * from "./filter";
 export * from "./move";
 export * from "./journal";
+export * from "./generate";
 export * from "./library";
 export * from "./preview";
 export * from "./executor";

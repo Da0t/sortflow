@@ -23,6 +23,11 @@ export interface SortflowApi {
   previewPipeline(
     p: Pipeline,
   ): Promise<{ problems: string[]; preview?: PipelinePreview }>;
+  /** Draft a pipeline from a natural-language description via local Ollama. */
+  generatePipeline(
+    description: string,
+    model?: string,
+  ): Promise<{ pipeline: Pipeline | null; error: string | null }>;
   listProposals(): Promise<Proposal[]>;
   approve(id: string): Promise<void>;
   reject(id: string): Promise<void>;
@@ -148,6 +153,47 @@ function createMockApi(): SortflowApi {
     async setPipeline(p) {
       localStorage.setItem("sortflow-pipeline", JSON.stringify(p));
       return { problems: [], warnings: [] };
+    },
+    async generatePipeline(_description: string) {
+      return {
+        pipeline: {
+          nodes: [
+            {
+              id: "gen-w",
+              kind: "watch",
+              config: { path: "~/Downloads", recursive: false },
+              position: { x: 40, y: 200 },
+            },
+            {
+              id: "gen-f-0",
+              kind: "filter",
+              config: { extensions: [".gif"] },
+              position: { x: 340, y: 60 },
+            },
+            {
+              id: "gen-m-0",
+              kind: "move",
+              config: { destination: "~/Desktop/GIFs", auto: false },
+              position: { x: 660, y: 60 },
+            },
+          ],
+          edges: [
+            {
+              id: "gen-e-0",
+              source: "gen-w",
+              sourceHandle: "out",
+              target: "gen-f-0",
+            },
+            {
+              id: "gen-e-1",
+              source: "gen-f-0",
+              sourceHandle: "match",
+              target: "gen-m-0",
+            },
+          ],
+        } as Pipeline,
+        error: null,
+      };
     },
     async previewPipeline(p) {
       const moves = p.nodes.filter((n) => n.kind === "move");
