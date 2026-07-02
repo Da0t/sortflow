@@ -120,9 +120,20 @@ interface AutoSetupSectionProps {
 }
 
 function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
-  const [folder, setFolder] = useState(FOLDERS[0]);
+  const [scanDirs, setScanDirs] = useState<string[]>([
+    "~/Downloads",
+    "~/Desktop",
+  ]);
   const [destBase, setDestBase] = useState(loadDestBase);
   const [busy, setBusy] = useState(false);
+
+  function toggleDir(folder: string) {
+    setScanDirs((prev) =>
+      prev.includes(folder)
+        ? prev.filter((f) => f !== folder)
+        : FOLDERS.filter((f) => f === folder || prev.includes(f)),
+    );
+  }
 
   async function chooseDest(value: string) {
     if (value === "__custom__") {
@@ -139,7 +150,7 @@ function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
   async function handleAutoSetup() {
     setBusy(true);
     try {
-      const result = await api.autoSetup(folder, destBase || undefined);
+      const result = await api.autoSetup(scanDirs, destBase || undefined);
       useFlowStore.getState().loadPipeline(result.pipeline);
       // Count rules = number of filter-move pairs (filter nodes starting with auto-f-)
       const ruleCount = result.pipeline.nodes.filter((n) =>
@@ -155,18 +166,18 @@ function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
 
   return (
     <>
-      <select
-        value={folder}
-        onChange={(e) => setFolder(e.target.value)}
-        className="sf-autosetup-select"
-        aria-label="Folder to scan"
-      >
+      <div className="sf-scan-dirs" aria-label="Folders to scan">
         {FOLDERS.map((f) => (
-          <option key={f} value={f}>
-            {f}
-          </option>
+          <label key={f} className="sf-scan-dir">
+            <input
+              type="checkbox"
+              checked={scanDirs.includes(f)}
+              onChange={() => toggleDir(f)}
+            />
+            {f.replace("~/", "")}
+          </label>
         ))}
-      </select>
+      </div>
       <select
         value={destBase}
         onChange={(e) => void chooseDest(e.target.value)}
@@ -188,7 +199,7 @@ function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
         type="button"
         className="sf-autosetup-btn"
         onClick={handleAutoSetup}
-        disabled={busy}
+        disabled={busy || scanDirs.length === 0}
       >
         <Sparkles size={16} strokeWidth={2} aria-hidden="true" />
         {busy ? "Scanning…" : "Run Auto Setup"}

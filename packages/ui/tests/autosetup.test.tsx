@@ -117,9 +117,8 @@ describe("Auto Setup UI", () => {
     render(<App />);
     // The section label and button both say "Auto Setup"
     expect(screen.getAllByText("Auto Setup").length).toBeGreaterThanOrEqual(1);
-    expect(
-      screen.getByRole("combobox", { name: /folder to scan/i }),
-    ).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /downloads/i })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /desktop/i })).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /run auto setup/i }),
     ).toBeTruthy();
@@ -199,7 +198,10 @@ describe("Auto Setup UI", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /run auto setup/i }));
     await waitFor(() => {
-      expect(api.autoSetup).toHaveBeenCalledWith("~/Downloads", "~/Desktop");
+      expect(api.autoSetup).toHaveBeenCalledWith(
+        ["~/Downloads", "~/Desktop"],
+        "~/Desktop",
+      );
     });
   });
 
@@ -212,7 +214,10 @@ describe("Auto Setup UI", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /run auto setup/i }));
     await waitFor(() => {
-      expect(api.autoSetup).toHaveBeenCalledWith("~/Downloads", undefined);
+      expect(api.autoSetup).toHaveBeenCalledWith(
+        ["~/Downloads", "~/Desktop"],
+        undefined,
+      );
     });
   });
 

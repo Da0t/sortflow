@@ -8,6 +8,7 @@ import {
   type PipelineLibrary,
   detectWatchOverlaps,
   mergePipelines,
+  mergeScans,
   previewPipeline,
   scanFolder,
   suggestPipeline,
@@ -217,13 +218,26 @@ export function registerIpc(
 
   ipcMain.handle(
     "autosetup:scan",
-    async (_evt, dir: string, destBase?: string) => {
-      const expanded = dir.startsWith("~")
-        ? dir.replace(/^~/, os.homedir())
-        : dir;
-      const scan = await scanFolder(expanded);
-      const pipeline = suggestPipeline(expanded, scan, { destBase });
-      return { scan, pipeline };
+    async (_evt, dirOrDirs: string | string[], destBase?: string) => {
+      const dirs = Array.isArray(dirOrDirs) ? dirOrDirs : [dirOrDirs];
+      const scans = [];
+      const pipelines = [];
+      let offsetY = 0;
+      for (let i = 0; i < dirs.length; i++) {
+        const expanded = dirs[i].startsWith("~")
+          ? dirs[i].replace(/^~/, os.homedir())
+          : dirs[i];
+        const scan = await scanFolder(expanded);
+        scans.push(scan);
+        const p = suggestPipeline(expanded, scan, {
+          destBase,
+          idSuffix: dirs.length > 1 ? `-${i}` : "",
+          offsetY,
+        });
+        pipelines.push(p);
+        offsetY = Math.max(offsetY, ...p.nodes.map((n) => n.position.y)) + 240;
+      }
+      return { scan: mergeScans(scans), pipeline: mergePipelines(pipelines) };
     },
   );
 

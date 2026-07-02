@@ -47,8 +47,9 @@ export interface SortflowApi {
   onNodeStatus(
     cb: (nodeId: string, status: string, message?: string) => void,
   ): () => void;
+  /** Scan one or several folders and draft a pipeline covering them all. */
   autoSetup(
-    path: string,
+    paths: string | string[],
     destBase?: string,
   ): Promise<{ scan: FolderScan; pipeline: Pipeline }>;
   pickFolder(defaultPath?: string): Promise<string | null>;
@@ -329,7 +330,7 @@ function createMockApi(): SortflowApi {
       if (record) record.enabled = enabled;
       return { state: summary(), problems: [], warnings: [] };
     },
-    async autoSetup(_path: string, destBase?: string) {
+    async autoSetup(_paths: string | string[], destBase?: string) {
       const dest = (fallback: string, label: string) =>
         destBase ? `${destBase.replace(/\/+$/, "")}/${label}` : fallback;
       const scan: FolderScan = {

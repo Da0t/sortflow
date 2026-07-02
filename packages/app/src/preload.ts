@@ -34,8 +34,8 @@ contextBridge.exposeInMainWorld("sortflow", {
     subscribe("engine:stuck")(cb as never),
   onNodeStatus: (cb: (...a: unknown[]) => void) =>
     subscribe("engine:nodeStatus")(cb as never),
-  autoSetup: (path: string, destBase?: string) =>
-    ipcRenderer.invoke("autosetup:scan", path, destBase),
+  autoSetup: (paths: string | string[], destBase?: string) =>
+    ipcRenderer.invoke("autosetup:scan", paths, destBase),
   pickFolder: (defaultPath?: string) =>
     ipcRenderer.invoke("dialog:pickFolder", defaultPath),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

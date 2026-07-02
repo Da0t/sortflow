@@ -141,6 +141,24 @@ export function estimateRowHeight(def: {
   return Math.max(160, 142 + lines * 16);
 }
 
+/** Sum bucket counts across several folder scans (canonical bucket order). */
+export function mergeScans(scans: FolderScan[]): FolderScan {
+  const counts = new Map<string, number>();
+  for (const scan of scans) {
+    for (const b of scan.buckets) {
+      counts.set(b.key, (counts.get(b.key) ?? 0) + b.count);
+    }
+  }
+  const buckets: BucketStat[] = [];
+  for (const def of BUCKETS) {
+    const count = counts.get(def.key);
+    if (count !== undefined && count > 0) {
+      buckets.push({ key: def.key, label: def.label, count });
+    }
+  }
+  return { total: scans.reduce((sum, s) => sum + s.total, 0), buckets };
+}
+
 /** Return the canonical bucket key a file belongs to (first match wins). */
 function classifyFile(name: string, ext: string): string | null {
   const lowerName = name.toLowerCase();
@@ -222,22 +240,32 @@ export async function scanFolder(
 export function suggestPipeline(
   watchPath: string,
   scan: FolderScan,
-  opts: { minCount?: number; home?: string; destBase?: string } = {},
+  opts: {
+    minCount?: number;
+    home?: string;
+    destBase?: string;
+    /** Distinguishes node ids when several folders are scanned at once. */
+    idSuffix?: string;
+    /** Shifts the whole block down so multi-folder drafts stack cleanly. */
+    offsetY?: number;
+  } = {},
 ): Pipeline {
   const minCount = opts.minCount ?? 5;
   const home = opts.home ?? os.homedir();
+  const sfx = opts.idSuffix ?? "";
+  const offsetY = opts.offsetY ?? 0;
 
   const included = scan.buckets.filter((b) => b.count >= minCount);
 
   const watchNode = {
-    id: "auto-w",
+    id: `auto-w${sfx}`,
     kind: "watch" as const,
     config: {
       path: watchPath,
       recursive: false,
       scanExisting: true,
     } satisfies WatchConfig,
-    position: { x: 40, y: 200 },
+    position: { x: 40, y: 200 + offsetY },
   };
 
   if (included.length === 0) {
@@ -247,15 +275,15 @@ export function suggestPipeline(
   const nodes: Pipeline["nodes"] = [watchNode];
   const edges: Pipeline["edges"] = [];
   let edgeN = 0;
-  let y = 60;
+  let y = 60 + offsetY;
 
   for (let i = 0; i < included.length; i++) {
     const bucket = included[i];
     const def = BUCKETS.find((b) => b.key === bucket.key);
     if (!def) continue;
 
-    const fId = `auto-f-${bucket.key}`;
-    const mId = `auto-m-${bucket.key}`;
+    const fId = `auto-f${sfx}-${bucket.key}`;
+    const mId = `auto-m${sfx}-${bucket.key}`;
 
     // Build FilterConfig for this bucket.
     const filterConfig: FilterConfig = { extensions: def.extensions };
@@ -288,16 +316,16 @@ export function suggestPipeline(
     // watch out -> first filter
     if (i === 0) {
       edges.push({
-        id: `auto-e-${edgeN++}`,
-        source: "auto-w",
+        id: `auto-e${sfx}-${edgeN++}`,
+        source: `auto-w${sfx}`,
         sourceHandle: "out",
         target: fId,
       });
     } else {
       // prev filter else -> this filter
-      const prevFId = `auto-f-${included[i - 1].key}`;
+      const prevFId = `auto-f${sfx}-${included[i - 1].key}`;
       edges.push({
-        id: `auto-e-${edgeN++}`,
+        id: `auto-e${sfx}-${edgeN++}`,
         source: prevFId,
         sourceHandle: "else",
         target: fId,
@@ -306,7 +334,7 @@ export function suggestPipeline(
 
     // filter match -> move
     edges.push({
-      id: `auto-e-${edgeN++}`,
+      id: `auto-e${sfx}-${edgeN++}`,
       source: fId,
       sourceHandle: "match",
       target: mId,

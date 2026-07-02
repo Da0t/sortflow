@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { scanFolder, suggestPipeline } from "../src/autosetup";
+import { mergeScans, scanFolder, suggestPipeline } from "../src/autosetup";
 import { validatePipeline } from "../src/graph";
 
 async function tmpDir(): Promise<string> {
@@ -139,7 +139,47 @@ describe("scanFolder", () => {
   });
 });
 
+describe("mergeScans", () => {
+  it("sums bucket counts across folders in canonical order", () => {
+    const merged = mergeScans([
+      { total: 5, buckets: [{ key: "images", label: "Images", count: 5 }] },
+      {
+        total: 3,
+        buckets: [
+          { key: "documents", label: "Documents", count: 1 },
+          { key: "images", label: "Images", count: 2 },
+        ],
+      },
+    ]);
+    expect(merged.total).toBe(8);
+    expect(merged.buckets).toEqual([
+      { key: "images", label: "Images", count: 7 },
+      { key: "documents", label: "Documents", count: 1 },
+    ]);
+  });
+});
+
 describe("suggestPipeline", () => {
+  it("idSuffix and offsetY keep multi-folder drafts distinct and stacked", () => {
+    const scan = {
+      total: 10,
+      buckets: [{ key: "images", label: "Images", count: 10 }],
+    };
+    const p = suggestPipeline("/two", scan, {
+      minCount: 1,
+      idSuffix: "-1",
+      offsetY: 500,
+    });
+    expect(p.nodes.map((n) => n.id)).toEqual([
+      "auto-w-1",
+      "auto-f-1-images",
+      "auto-m-1-images",
+    ]);
+    expect(p.nodes[0].position.y).toBe(700); // watch: 200 + offset
+    expect(p.nodes[1].position.y).toBe(560); // first row: 60 + offset
+    expect(validatePipeline(p)).toEqual([]);
+  });
+
   it("returns watch-only pipeline for empty scan", () => {
     const scan = { total: 0, buckets: [] };
     const pipeline = suggestPipeline("/watch/path", scan);
