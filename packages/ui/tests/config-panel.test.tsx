@@ -253,3 +253,36 @@ describe("ConfigPanel: filter age inputs", () => {
     expect(screen.getByText(/fileYYYY/i)).toBeTruthy();
   });
 });
+
+describe("ConfigPanel: date grouping chip", () => {
+  it("appends {fileYYYY}/{fileMM} to the destination on click", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    render(<ConfigPanel />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /group into year\/month/i }),
+    );
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as MoveConfig;
+    expect(cfg.destination).toBe("~/Docs/{fileYYYY}/{fileMM}");
+  });
+
+  it("hides the chip when the destination already groups by file date", () => {
+    useFlowStore.getState().loadPipeline({
+      nodes: [
+        {
+          id: "m1",
+          kind: "move",
+          config: { destination: "~/Docs/{fileYYYY}/{fileMM}", auto: false },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    });
+    useFlowStore.getState().setSelected("m1");
+    render(<ConfigPanel />);
+    expect(
+      screen.queryByRole("button", { name: /group into year\/month/i }),
+    ).toBeNull();
+  });
+});

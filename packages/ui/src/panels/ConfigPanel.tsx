@@ -5,7 +5,7 @@ import type {
   NodeConfig,
   WatchConfig,
 } from "@sortflow/engine";
-import { FolderOpen, Trash2, TriangleAlert } from "lucide-react";
+import { CalendarDays, FolderOpen, Trash2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../bridge";
 import {
@@ -296,6 +296,26 @@ export function ConfigPanel() {
               <DestinationChips
                 onSelect={(path) => set({ ...c, destination: path })}
               />
+              {c.destination !== "" &&
+                !c.destination.includes("{fileYYYY}") && (
+                  <button
+                    type="button"
+                    className="sf-chip sf-chip-action"
+                    onClick={() =>
+                      set({
+                        ...c,
+                        destination: `${c.destination.replace(/\/+$/, "")}/{fileYYYY}/{fileMM}`,
+                      })
+                    }
+                  >
+                    <CalendarDays
+                      size={12}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+                    Group into Year/Month by file date
+                  </button>
+                )}
               <p
                 className="sf-hint-muted"
                 style={{ fontSize: 12, color: "var(--sf-text-muted)" }}

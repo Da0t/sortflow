@@ -850,3 +850,10 @@ input:focus-visible {
   outline: 2px solid var(--sf-primary);
   outline-offset: 2px;
 }
+
+.sf-chip-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
