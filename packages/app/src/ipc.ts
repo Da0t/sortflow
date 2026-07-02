@@ -1,29 +1,20 @@
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import { join } from "node:path";
 import {
   Engine,
   type Pipeline,
+  type PipelineLibrary,
+  mergePipelines,
   scanFolder,
   suggestPipeline,
   validatePipeline,
 } from "@sortflow/engine";
 import { type BrowserWindow, dialog, ipcMain } from "electron";
 
-const EMPTY: Pipeline = { nodes: [], edges: [] };
-
-export async function loadPipeline(dataDir: string): Promise<Pipeline> {
-  try {
-    return JSON.parse(
-      await readFile(join(dataDir, "pipeline.json"), "utf8"),
-    ) as Pipeline;
-  } catch {
-    return EMPTY;
-  }
-}
-
 export function registerIpc(
   engine: Engine,
+  library: PipelineLibrary,
   dataDir: string,
   getWin: () => BrowserWindow | null,
   onPending: (count: number) => void = () => {},
@@ -53,27 +44,98 @@ export function registerIpc(
   };
   wire(current);
 
-  ipcMain.handle("pipeline:get", () => loadPipeline(dataDir));
-
-  ipcMain.handle("pipeline:set", async (_evt, pipeline: Pipeline) => {
-    const problems = validatePipeline(pipeline);
-    if (problems.length > 0) return { problems };
-    await writeFile(
-      join(dataDir, "pipeline.json"),
-      JSON.stringify(pipeline, null, 2),
-      "utf8",
-    );
-    // Quiesce the old engine before swapping: drop its listeners so draining
-    // moves can't emit onto stale handlers, then stop() (which drains the move
-    // mutex) before the new engine takes over.
+  // Quiesce the old engine before swapping: drop its listeners so draining
+  // moves can't emit onto stale handlers, then stop() (which drains the move
+  // mutex) before the new engine takes over — running the merged graph of
+  // every enabled pipeline in the library.
+  const restartEngine = async () => {
     current.removeAllListeners();
     await current.stop();
     current = new Engine({ dataDir });
     wire(current);
-    await current.start(pipeline);
+    await current.start(mergePipelines(library.enabledPipelines()));
     onPending(pendingCount());
+  };
+
+  /** Enabled graphs with the active pipeline's graph replaced by `draft`. */
+  const mergedWithDraft = (draft: Pipeline): Pipeline => {
+    const { activeId, pipelines } = library.summary();
+    const others = pipelines
+      .filter((p) => p.enabled && p.id !== activeId)
+      .flatMap((p) => {
+        const record = library.get(p.id);
+        return record ? [record.pipeline] : [];
+      });
+    return mergePipelines([draft, ...others]);
+  };
+
+  ipcMain.handle("pipeline:get", () => library.active().pipeline);
+
+  ipcMain.handle("pipeline:set", async (_evt, pipeline: Pipeline) => {
+    // Validate the merged graph so cross-pipeline conflicts surface too.
+    const problems = validatePipeline(mergedWithDraft(pipeline));
+    if (problems.length > 0) return { problems };
+    await library.savePipeline(library.summary().activeId, pipeline);
+    await restartEngine();
     return { problems: [] };
   });
+
+  ipcMain.handle("pipelines:list", () => library.summary());
+
+  // Switching/creating carries the editor's unsaved graph as `draft` so tab
+  // changes never lose work. Drafts are persisted but the running engine only
+  // changes on Save & Apply, enable/disable, or delete.
+  ipcMain.handle(
+    "pipelines:setActive",
+    async (_evt, id: string, draft?: Pipeline) => {
+      if (draft) await library.savePipeline(library.summary().activeId, draft);
+      const record = await library.setActive(id);
+      return { state: library.summary(), pipeline: record.pipeline };
+    },
+  );
+
+  ipcMain.handle("pipelines:create", async (_evt, draft?: Pipeline) => {
+    if (draft) await library.savePipeline(library.summary().activeId, draft);
+    // A new pipeline starts empty, so the running engine needs no restart.
+    const record = await library.create();
+    return { state: library.summary(), pipeline: record.pipeline };
+  });
+
+  ipcMain.handle("pipelines:rename", async (_evt, id: string, name: string) => {
+    await library.rename(id, name);
+    return library.summary();
+  });
+
+  ipcMain.handle("pipelines:delete", async (_evt, id: string) => {
+    const wasEnabled = library.get(id)?.enabled ?? false;
+    await library.remove(id);
+    if (wasEnabled) {
+      // Shrinking the merged graph is safe unless another stored draft is
+      // invalid; in that case keep the old engine running untouched.
+      const problems = validatePipeline(
+        mergePipelines(library.enabledPipelines()),
+      );
+      if (problems.length === 0) await restartEngine();
+    }
+    return { state: library.summary(), pipeline: library.active().pipeline };
+  });
+
+  ipcMain.handle(
+    "pipelines:setEnabled",
+    async (_evt, id: string, enabled: boolean) => {
+      await library.setEnabled(id, enabled);
+      const problems = validatePipeline(
+        mergePipelines(library.enabledPipelines()),
+      );
+      if (problems.length > 0) {
+        // The stored draft can't run — revert so the toggle reflects reality.
+        await library.setEnabled(id, !enabled);
+        return { state: library.summary(), problems };
+      }
+      await restartEngine();
+      return { state: library.summary(), problems: [] };
+    },
+  );
 
   ipcMain.handle("proposals:list", () => current.listProposals());
   ipcMain.handle("proposals:approve", async (_evt, id: string) => {
@@ -117,6 +179,29 @@ export function registerIpc(
       return (await stat(path)).isDirectory();
     } catch {
       return false;
+    }
+  });
+
+  ipcMain.handle("fs:listFolders", async (_evt, path?: string) => {
+    const base = (path ?? "~").replace(/^~/, os.homedir());
+    try {
+      const entries = await readdir(base, { withFileTypes: true });
+      // Deliberately no per-child probe: reading INTO ~/Documents etc. at
+      // launch would fire macOS permission prompts before the user touches
+      // the feature. Every folder is treated as expandable; expanding an
+      // empty one just shows "No subfolders".
+      return entries
+        .filter((d) => d.isDirectory() && !d.name.startsWith("."))
+        .map((d) => ({
+          name: d.name,
+          path: join(base, d.name),
+          hasChildren: true,
+        }))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        );
+    } catch {
+      return [];
     }
   });
 

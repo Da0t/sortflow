@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ReactElement } from "react";
 import { api } from "../bridge";
 import { useFlowStore } from "../store";
+import { FolderTree } from "./FolderTree";
 
 const KINDS: Array<{ kind: NodeKind; label: string; icon: ReactElement }> = [
   {
@@ -106,6 +107,13 @@ export function Palette({ onAutoSetupResult, onAutoSetupError }: PaletteProps) {
           {label}
         </button>
       ))}
+      <span className="sf-palette-label" style={{ marginTop: "8px" }}>
+        Your Folders
+      </span>
+      <p className="sf-folder-hint">
+        Drag a folder onto the canvas or a Move node
+      </p>
+      <FolderTree />
     </div>
   );
 }

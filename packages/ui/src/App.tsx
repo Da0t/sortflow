@@ -12,12 +12,13 @@ import type { FolderScan } from "@sortflow/engine";
 import { useRef, useState } from "react";
 import { api } from "./bridge";
 import { DeletableEdge } from "./edges/DeletableEdge";
-import { handleFolderDrop } from "./lib/folderDrop";
+import { handleFolderDrop, readFolderDragPath } from "./lib/folderDrop";
 import { nodeTypes } from "./nodes";
 import { AutoSetupBanner } from "./panels/AutoSetupBanner";
 import { ConfigPanel } from "./panels/ConfigPanel";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { Palette } from "./panels/Palette";
+import { PipelineTabs } from "./panels/PipelineTabs";
 import { ReviewTray } from "./panels/ReviewTray";
 import { useFlowStore } from "./store";
 import "./styles.css";
@@ -60,61 +61,70 @@ function FlowCanvas({
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    // Folder dragged from the in-app folder tree — already known to be a dir.
+    const treePath = readFolderDragPath(e.dataTransfer);
+    if (treePath) {
+      handleFolderDrop(treePath, true, addNode, position);
+      return;
+    }
     const file = e.dataTransfer.files[0];
     if (!file) return;
     const path = api.getPathForFile(file);
     if (!path) return;
     const isDir = await api.isDirectory(path);
-    const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
     handleFolderDrop(path, isDir, addNode, position);
   };
 
   return (
     <div className="sf-canvas">
-      {banner && (
-        <AutoSetupBanner
-          scan={banner.scan}
-          ruleCount={banner.ruleCount}
-          error={banner.error}
-          onDismiss={onDismissBanner}
-        />
-      )}
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onSelectionChange={(sel) => setSelected(sel.nodes[0]?.id ?? null)}
-        deleteKeyCode={["Backspace", "Delete"]}
-        connectionRadius={40}
-        edgesReconnectable
-        onReconnectStart={() => {
-          reconnectSucceeded.current = false;
-        }}
-        onReconnect={(oldEdge: Edge, newConnection) => {
-          reconnectSucceeded.current = true;
-          replaceEdge(oldEdge.id, newConnection);
-        }}
-        onReconnectEnd={(_event: MouseEvent | TouchEvent, edge: Edge) => {
-          if (!reconnectSucceeded.current) {
-            removeEdge(edge.id);
-          }
-        }}
-        onDragOver={handleDragOver}
-        onDrop={(e) => void handleDrop(e)}
-        fitView
-      >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={16}
-          size={1}
-          color="#d4d4dd"
-        />
-        <Controls />
-      </ReactFlow>
+      <PipelineTabs />
+      <div className="sf-flow">
+        {banner && (
+          <AutoSetupBanner
+            scan={banner.scan}
+            ruleCount={banner.ruleCount}
+            error={banner.error}
+            onDismiss={onDismissBanner}
+          />
+        )}
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onSelectionChange={(sel) => setSelected(sel.nodes[0]?.id ?? null)}
+          deleteKeyCode={["Backspace", "Delete"]}
+          connectionRadius={40}
+          edgesReconnectable
+          onReconnectStart={() => {
+            reconnectSucceeded.current = false;
+          }}
+          onReconnect={(oldEdge: Edge, newConnection) => {
+            reconnectSucceeded.current = true;
+            replaceEdge(oldEdge.id, newConnection);
+          }}
+          onReconnectEnd={(_event: MouseEvent | TouchEvent, edge: Edge) => {
+            if (!reconnectSucceeded.current) {
+              removeEdge(edge.id);
+            }
+          }}
+          onDragOver={handleDragOver}
+          onDrop={(e) => void handleDrop(e)}
+          fitView
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={16}
+            size={1}
+            color="#d4d4dd"
+          />
+          <Controls />
+        </ReactFlow>
+      </div>
     </div>
   );
 }

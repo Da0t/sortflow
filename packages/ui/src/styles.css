@@ -54,12 +54,122 @@ body {
 
 .sf-canvas {
   flex: 1;
+  min-width: 0;
   background: var(--sf-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.sf-flow {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* ── Pipeline tabs ────────────────────────────────────────────── */
+.sf-tabs-bar {
+  background: var(--sf-surface);
+  border-bottom: 1px solid var(--sf-border);
+}
+
+.sf-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  overflow-x: auto;
+}
+
+.sf-tab {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--sf-radius-sm);
+  color: var(--sf-text-muted);
+  white-space: nowrap;
+}
+
+.sf-tab-active {
+  background: var(--sf-bg);
+  border-color: var(--sf-border);
+  color: var(--sf-text);
+}
+
+.sf-tabs button {
+  display: flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 3px 4px;
+  border-radius: var(--sf-radius-sm);
+  font-size: 12.5px;
+}
+
+.sf-tabs button:hover {
+  background: #f1f5f9;
+}
+
+.sf-tabs button:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 1px;
+}
+
+.sf-tab-power {
+  color: var(--sf-text-muted);
+  opacity: 0.55;
+}
+
+.sf-tab-power.sf-on {
+  color: #16a34a;
+  opacity: 1;
+}
+
+.sf-tab-name {
+  font-weight: 500;
+}
+
+.sf-tab-rename {
+  font-size: 12.5px;
+  width: 110px;
+  padding: 2px 4px;
+  border: 1px solid var(--sf-primary);
+  border-radius: var(--sf-radius-sm);
+}
+
+.sf-tab-close {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.sf-tab:hover .sf-tab-close,
+.sf-tab-close:focus-visible {
+  opacity: 1;
+}
+
+.sf-tabs-add {
+  color: var(--sf-text-muted);
+}
+
+.sf-tabs-problems {
+  padding: 4px 12px 8px;
+  font-size: 12px;
+  color: var(--sf-danger, #dc2626);
+}
+
+.sf-tabs-problems p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
 }
 
 /* ── Palette ──────────────────────────────────────────────────── */
 .sf-palette {
-  width: 180px;
+  width: 208px;
   padding: 14px 12px;
   display: flex;
   flex-direction: column;
@@ -101,6 +211,64 @@ body {
   outline-offset: 2px;
 }
 
+/* ── Folder tree ──────────────────────────────────────────────── */
+.sf-folder-hint {
+  font-size: 11px;
+  color: var(--sf-text-muted);
+  margin: 0 0 2px;
+  padding: 0 4px;
+}
+
+.sf-folder-tree {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sf-folder-tree button.sf-folder-row {
+  gap: 6px;
+  padding: 4px 6px;
+  font-size: 12.5px;
+  width: 100%;
+  cursor: grab;
+}
+
+.sf-folder-tree button.sf-folder-row:active {
+  cursor: grabbing;
+}
+
+.sf-folder-chevron {
+  flex-shrink: 0;
+  color: var(--sf-text-muted);
+  transition: transform 120ms ease;
+}
+
+.sf-folder-chevron.sf-open {
+  transform: rotate(90deg);
+}
+
+.sf-folder-icon {
+  flex-shrink: 0;
+  color: var(--sf-text-muted);
+}
+
+.sf-folder-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sf-folder-empty {
+  display: block;
+  font-size: 11.5px;
+  color: var(--sf-text-muted);
+  padding: 2px 6px 4px;
+}
+
 /* ── Nodes ────────────────────────────────────────────────────── */
 .sf-node {
   border: 1px solid var(--sf-border);
@@ -113,6 +281,13 @@ body {
 
 .react-flow__node.selected .sf-node {
   border-color: var(--sf-primary);
+  box-shadow: 0 0 0 3px var(--sf-primary-soft);
+}
+
+/* A folder drag is hovering over this node — drop retargets it. */
+.sf-node.sf-node-drop-active {
+  border-color: var(--sf-primary);
+  border-style: dashed;
   box-shadow: 0 0 0 3px var(--sf-primary-soft);
 }
 

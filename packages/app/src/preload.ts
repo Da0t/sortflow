@@ -34,4 +34,15 @@ contextBridge.exposeInMainWorld("sortflow", {
     ipcRenderer.invoke("dialog:pickFolder", defaultPath),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   isDirectory: (path: string) => ipcRenderer.invoke("fs:isDirectory", path),
+  listFolders: (path?: string) => ipcRenderer.invoke("fs:listFolders", path),
+  listPipelines: () => ipcRenderer.invoke("pipelines:list"),
+  switchPipeline: (id: string, draft?: unknown) =>
+    ipcRenderer.invoke("pipelines:setActive", id, draft),
+  createPipeline: (draft?: unknown) =>
+    ipcRenderer.invoke("pipelines:create", draft),
+  renamePipeline: (id: string, name: string) =>
+    ipcRenderer.invoke("pipelines:rename", id, name),
+  deletePipeline: (id: string) => ipcRenderer.invoke("pipelines:delete", id),
+  setPipelineEnabled: (id: string, enabled: boolean) =>
+    ipcRenderer.invoke("pipelines:setEnabled", id, enabled),
 });

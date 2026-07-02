@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import { Engine, type Pipeline } from "@sortflow/engine";
+import { Engine, PipelineLibrary, mergePipelines } from "@sortflow/engine";
 import { BrowserWindow, app } from "electron";
-import { loadPipeline, registerIpc } from "./ipc";
+import { registerIpc } from "./ipc";
 import { createTray } from "./tray";
 
 let win: BrowserWindow | null = null;
@@ -39,18 +39,19 @@ app.on("before-quit", () => {
 
 app.whenReady().then(async () => {
   const dataDir = app.getPath("userData");
+  const library = await PipelineLibrary.load(dataDir);
   const engine = new Engine({ dataDir });
-  const pipeline: Pipeline = await loadPipeline(dataDir);
   const { pendingCount } = registerIpc(
     engine,
+    library,
     dataDir,
     () => win,
     (count) => updateBadge(count),
   );
   try {
-    await engine.start(pipeline);
+    await engine.start(mergePipelines(library.enabledPipelines()));
   } catch (err) {
-    console.error("engine failed to start with saved pipeline:", err);
+    console.error("engine failed to start with saved pipelines:", err);
   }
   win = createWindow();
   const tray = createTray(() => {

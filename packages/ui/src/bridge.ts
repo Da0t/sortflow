@@ -2,8 +2,16 @@ import type {
   FolderScan,
   JournalEntry,
   Pipeline,
+  PipelineLibrarySummary,
   Proposal,
 } from "@sortflow/engine";
+
+/** One folder in the user's folder tree (see listFolders). */
+export interface FolderEntry {
+  name: string;
+  path: string;
+  hasChildren: boolean;
+}
 
 export interface SortflowApi {
   getPipeline(): Promise<Pipeline>;
@@ -25,9 +33,56 @@ export interface SortflowApi {
   pickFolder(defaultPath?: string): Promise<string | null>;
   getPathForFile(file: File): string;
   isDirectory(path: string): Promise<boolean>;
+  listFolders(path?: string): Promise<FolderEntry[]>;
+  listPipelines(): Promise<PipelineLibrarySummary>;
+  /** Switch the editor to pipeline `id`; `draft` stashes the current canvas. */
+  switchPipeline(
+    id: string,
+    draft?: Pipeline,
+  ): Promise<{ state: PipelineLibrarySummary; pipeline: Pipeline }>;
+  createPipeline(
+    draft?: Pipeline,
+  ): Promise<{ state: PipelineLibrarySummary; pipeline: Pipeline }>;
+  renamePipeline(id: string, name: string): Promise<PipelineLibrarySummary>;
+  deletePipeline(
+    id: string,
+  ): Promise<{ state: PipelineLibrarySummary; pipeline: Pipeline }>;
+  setPipelineEnabled(
+    id: string,
+    enabled: boolean,
+  ): Promise<{ state: PipelineLibrarySummary; problems: string[] }>;
 }
 
 const EMPTY: Pipeline = { nodes: [], edges: [] };
+
+/** Fake folder tree for the browser-only mock, keyed by parent path. */
+const MOCK_FOLDER_TREE: Record<string, FolderEntry[]> = {
+  "~": [
+    { name: "Desktop", path: "/Users/demo/Desktop", hasChildren: false },
+    { name: "Documents", path: "/Users/demo/Documents", hasChildren: true },
+    { name: "Downloads", path: "/Users/demo/Downloads", hasChildren: false },
+    { name: "Pictures", path: "/Users/demo/Pictures", hasChildren: true },
+  ],
+  "/Users/demo/Documents": [
+    {
+      name: "Invoices",
+      path: "/Users/demo/Documents/Invoices",
+      hasChildren: false,
+    },
+    {
+      name: "School",
+      path: "/Users/demo/Documents/School",
+      hasChildren: false,
+    },
+  ],
+  "/Users/demo/Pictures": [
+    {
+      name: "Screenshots",
+      path: "/Users/demo/Pictures/Screenshots",
+      hasChildren: false,
+    },
+  ],
+};
 
 /** Browser-only mock so `pnpm --filter @sortflow/ui dev` works without Electron. */
 function createMockApi(): SortflowApi {
@@ -44,6 +99,33 @@ function createMockApi(): SortflowApi {
     },
   ];
   const executedCbs = new Set<(p: Proposal) => void>();
+  // In-memory pipeline library for the browser demo.
+  const library: {
+    activeId: string;
+    pipelines: Array<{
+      id: string;
+      name: string;
+      enabled: boolean;
+      pipeline: Pipeline;
+    }>;
+  } = {
+    activeId: "p1",
+    pipelines: [
+      { id: "p1", name: "My Pipeline", enabled: true, pipeline: EMPTY },
+    ],
+  };
+  const active = () => {
+    const record = library.pipelines.find((p) => p.id === library.activeId);
+    return record ?? library.pipelines[0];
+  };
+  const summary = (): PipelineLibrarySummary => ({
+    activeId: library.activeId,
+    pipelines: library.pipelines.map(({ id, name, enabled }) => ({
+      id,
+      name,
+      enabled,
+    })),
+  });
   return {
     async getPipeline() {
       const raw = localStorage.getItem("sortflow-pipeline");
@@ -107,6 +189,51 @@ function createMockApi(): SortflowApi {
     },
     async isDirectory(_path: string) {
       return false;
+    },
+    async listFolders(path?: string) {
+      return MOCK_FOLDER_TREE[path ?? "~"] ?? [];
+    },
+    async listPipelines() {
+      return summary();
+    },
+    async switchPipeline(id, draft) {
+      if (draft) active().pipeline = draft;
+      library.activeId = id;
+      return { state: summary(), pipeline: active().pipeline };
+    },
+    async createPipeline(draft) {
+      if (draft) active().pipeline = draft;
+      const record = {
+        id: `p${library.pipelines.length + 1}`,
+        name: `Pipeline ${library.pipelines.length + 1}`,
+        enabled: true,
+        pipeline: EMPTY,
+      };
+      library.pipelines.push(record);
+      library.activeId = record.id;
+      return { state: summary(), pipeline: record.pipeline };
+    },
+    async renamePipeline(id, name) {
+      const record = library.pipelines.find((p) => p.id === id);
+      if (record) record.name = name;
+      return summary();
+    },
+    async deletePipeline(id) {
+      library.pipelines = library.pipelines.filter((p) => p.id !== id);
+      if (library.pipelines.length === 0) {
+        library.pipelines = [
+          { id: "p1", name: "My Pipeline", enabled: true, pipeline: EMPTY },
+        ];
+      }
+      if (!library.pipelines.some((p) => p.id === library.activeId)) {
+        library.activeId = library.pipelines[0].id;
+      }
+      return { state: summary(), pipeline: active().pipeline };
+    },
+    async setPipelineEnabled(id, enabled) {
+      const record = library.pipelines.find((p) => p.id === id);
+      if (record) record.enabled = enabled;
+      return { state: summary(), problems: [] };
     },
     async autoSetup(_path: string) {
       const scan: FolderScan = {
