@@ -210,7 +210,7 @@ type AnyNode =
 function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
   return (
     <div
-      className={`sf-bubble${data.isRoot ? " sf-bubble-root" : ""}${
+      className={`sf-bubble nodrag${data.isRoot ? " sf-bubble-root" : ""}${
         data.hidden ? " sf-bubble-hidden" : ""
       }${data.dropTarget === data.path ? " sf-btree-drop" : ""}`}
       title={data.path}
@@ -291,7 +291,7 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
           </button>
         )}
       </span>
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Bottom} style={{ left: 24 }} />
       <Handle type="source" position={Position.Right} id="side" />
     </div>
   );
@@ -300,7 +300,7 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
 /** Inline input node for naming a new folder, wired beside its parent. */
 function CreatorNode({ data }: NodeProps<Node<CreatorData, "creator">>) {
   return (
-    <div className="sf-chipnode sf-creator">
+    <div className="sf-chipnode sf-creator nodrag">
       <Handle type="target" position={Position.Left} />
       <FolderPlus size={11} strokeWidth={2} aria-hidden="true" />
       <input
@@ -326,7 +326,7 @@ function ChipNode({ data }: NodeProps<Node<ChipData, "chip">>) {
   const { entry } = data;
   return (
     <div
-      className={`sf-chipnode${
+      className={`sf-chipnode nodrag${
         data.dropTarget === entry.path ? " sf-btree-drop" : ""
       }`}
       title={entry.path}
@@ -796,6 +796,7 @@ export function FilesView() {
             nodesConnectable={false}
             edgesFocusable={false}
             defaultEdgeOptions={{
+              type: "smoothstep",
               style: { stroke: "#94a3b8", strokeWidth: 1.6 },
             }}
             panOnScroll
