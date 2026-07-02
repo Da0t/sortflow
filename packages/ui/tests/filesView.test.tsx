@@ -15,47 +15,57 @@ const DOCS_ENTRIES: FsEntry[] = [
 ];
 
 function mockListing() {
-  vi.spyOn(api, "listEntries").mockImplementation(async (path: string) =>
-    path.startsWith("/u/Documents") ? DOCS_ENTRIES : HOME_ENTRIES,
-  );
+  vi.spyOn(api, "listEntries").mockImplementation(async (path: string) => {
+    if (path === "/u/Documents") return DOCS_ENTRIES;
+    if (path === "~") return HOME_ENTRIES;
+    return [];
+  });
 }
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("FilesView (bubbles)", () => {
-  it("shows folders as bubbles and keeps files tucked inside counts", async () => {
+describe("FilesView (column cascade)", () => {
+  it("shows Home's column; deeper contents wait for a click", async () => {
     mockListing();
     render(<FilesView />);
     expect(await screen.findByText("Home")).toBeTruthy();
     expect(await screen.findByText("Documents")).toBeTruthy();
-    // Files are not drawn until their folder is hovered.
-    expect(screen.queryByText("report.pdf")).toBeNull();
+    expect(screen.getByText("report.pdf")).toBeTruthy();
+    // Documents' contents stay closed until it is pressed.
+    expect(screen.queryByText("School")).toBeNull();
+    expect(screen.queryByText("essay.txt")).toBeNull();
   });
 
-  it("hovering a bubble fans out its contents as chips", async () => {
+  it("clicking a folder opens its contents in the next column", async () => {
     mockListing();
     const { container } = render(<FilesView />);
     await screen.findByText("Documents");
-    fireEvent.mouseEnter(
+    fireEvent.click(
       container.querySelector('[title="/u/Documents"]') as HTMLElement,
     );
     expect(await screen.findByText("School")).toBeTruthy();
     expect(screen.getByText("essay.txt")).toBeTruthy();
+    // The opened folder is highlighted as part of the trail.
+    expect(
+      container.querySelector(".sf-bubble-open[title='/u/Documents']"),
+    ).toBeTruthy();
   });
 
-  it("clicking a folder chip pins the branch open", async () => {
+  it("clicking the open folder again folds the trail back", async () => {
     mockListing();
     const { container } = render(<FilesView />);
     await screen.findByText("Documents");
-    fireEvent.mouseEnter(
+    fireEvent.click(
       container.querySelector('[title="/u/Documents"]') as HTMLElement,
     );
-    fireEvent.click(await screen.findByText("School"));
-    // The branch is pinned: School is now a bubble, the file chip is gone.
-    expect(await screen.findByText("School")).toBeTruthy();
-    await waitFor(() => expect(screen.queryByText("essay.txt")).toBeNull());
+    await screen.findByText("School");
+    fireEvent.click(
+      container.querySelector('[title="/u/Documents"]') as HTMLElement,
+    );
+    await waitFor(() => expect(screen.queryByText("School")).toBeNull());
+    expect(screen.queryByText("essay.txt")).toBeNull();
   });
 
   it("dropping an entry on a bubble performs a journaled move", async () => {
@@ -150,24 +160,20 @@ describe("FilesView (bubbles)", () => {
     expect(trash).not.toHaveBeenCalled();
   });
 
-  it("toggling a kind off hides those files from fans and counts", async () => {
+  it("toggling a kind off hides those files from columns and counts", async () => {
     mockListing();
     const { container } = render(<FilesView />);
     await screen.findByText("Documents");
-    // essay.txt is a "Docs" kind — visible in the hover fan by default.
-    fireEvent.mouseEnter(
+    fireEvent.click(
       container.querySelector('[title="/u/Documents"]') as HTMLElement,
     );
     expect(await screen.findByText("essay.txt")).toBeTruthy();
-    // Toggle Docs off: the chip disappears, the folder chip remains.
+    // Toggle Docs off: the file disappears, the folder remains.
     fireEvent.click(screen.getByRole("button", { name: "Docs" }));
     await waitFor(() => expect(screen.queryByText("essay.txt")).toBeNull());
     expect(screen.getByText("School")).toBeTruthy();
     // Toggle back on: it returns.
     fireEvent.click(screen.getByRole("button", { name: "Docs" }));
-    fireEvent.mouseEnter(
-      container.querySelector('[title="/u/Documents"]') as HTMLElement,
-    );
     expect(await screen.findByText("essay.txt")).toBeTruthy();
   });
 

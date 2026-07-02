@@ -282,6 +282,12 @@ body {
   text-align: left;
 }
 
+/* The opened folder in each column — the backtrackable trail. */
+.sf-bubble-open {
+  border-color: var(--sf-primary);
+  background: var(--sf-primary-soft);
+}
+
 /* A muted folder, revealed only while "Hidden: n" is toggled on. */
 .sf-bubble-hidden {
   opacity: 0.45;
@@ -341,13 +347,13 @@ body {
   color: var(--sf-text);
 }
 
-/* Hover-revealed satellite chip (one file/folder inside a bubble). */
-.sf-chipnode {
+/* A file row in a column: draggable, aligned with the folder boxes. */
+.sf-filechip {
   display: flex;
   align-items: center;
-  gap: 5px;
-  width: 130px;
-  padding: 4px 11px;
+  gap: 6px;
+  width: 190px;
+  padding: 5px 14px;
   border: 1px solid #cbd5e1;
   border-radius: 999px;
   background: var(--sf-surface);
@@ -357,13 +363,18 @@ body {
   cursor: grab;
 }
 
-.sf-chipnode > svg {
+.sf-filechip > svg {
   color: var(--sf-text-muted);
   flex-shrink: 0;
 }
 
-.sf-chipnode:hover {
+.sf-filechip:hover {
   border-color: var(--sf-primary);
+}
+
+.sf-filechip .sf-folder-name {
+  flex: 1;
+  text-align: left;
 }
 
 .sf-btree-drop {

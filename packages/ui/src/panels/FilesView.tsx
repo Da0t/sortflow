@@ -22,24 +22,20 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { type FsEntry, api } from "../bridge";
 import { readFolderDragPath, setFolderDragData } from "../lib/folderDrop";
 import { useFlowStore } from "../store";
 
 const HOME = "~";
-const MAX_CHIPS = 8;
-const BUBBLE_W = 190;
-/** Outline layout: children stack vertically, indented one step right. */
-const INDENT = 90;
-const ROW_H = 58;
-/** Hover chips: a column to the right of the bubble. */
-const CHIP_X_GAP = 70;
-const CHIP_ROW_H = 34;
+/** Column cascade: each opened folder's contents stack in the next column. */
+const COL_W = 270;
+const ROW_H = 46;
+const MAX_ROWS = 60;
 
 const HIDDEN_KEY = "sf-files-hidden-kinds";
 
-/** File-kind toggles: hide noisy categories from fans and counts. */
+/** File-kind toggles: hide noisy categories from columns and counts. */
 const KINDS: Array<{ key: string; label: string; exts: Set<string> }> = [
   {
     key: "images",
@@ -171,16 +167,20 @@ type BubbleData = {
   path: string;
   name: string;
   isRoot: boolean;
+  col: number;
+  open: boolean;
   count: number | null;
-  pinned: boolean;
-  onHover: (path: string | null) => void;
-  onToggle: (path: string) => void;
+  onOpen: (path: string, col: number) => void;
   onDropInto: (dest: string, e: React.DragEvent) => void;
   onTrash: (path: string, name: string) => void;
-  onStartCreate: (path: string) => void;
+  onStartCreate: (path: string, col: number) => void;
   onHideToggle: (path: string) => void;
   hidden: boolean;
   dropTarget: string | null;
+};
+
+type FileChipData = {
+  entry: FsEntry;
 };
 
 type CreatorData = {
@@ -191,35 +191,26 @@ type CreatorData = {
   onCancel: () => void;
 };
 
-type ChipData = {
-  entry: FsEntry;
-  parentPath: string;
-  onHover: (path: string | null) => void;
-  onPin: (parentPath: string) => void;
-  onDropInto: (dest: string, e: React.DragEvent) => void;
-  dropTarget: string | null;
-};
-
 type AnyNode =
   | Node<BubbleData, "bubble">
-  | Node<ChipData, "chip">
+  | Node<FileChipData, "filechip">
   | Node<CreatorData, "creator">;
 
-/** A folder as a bubble: name + item count. Hovering fans its contents out
- * as satellite chips; clicking toggles it open as a pinned branch. */
+/** A folder box. Click opens its contents in the next column; the open one
+ * stays highlighted so the trail can be backtracked. Drops land here. */
 function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
   return (
     <div
       className={`sf-bubble nodrag${data.isRoot ? " sf-bubble-root" : ""}${
-        data.hidden ? " sf-bubble-hidden" : ""
-      }${data.dropTarget === data.path ? " sf-btree-drop" : ""}`}
+        data.open ? " sf-bubble-open" : ""
+      }${data.hidden ? " sf-bubble-hidden" : ""}${
+        data.dropTarget === data.path ? " sf-btree-drop" : ""
+      }`}
       title={data.path}
       draggable={!data.isRoot}
-      onMouseEnter={() => data.onHover(data.path)}
-      onMouseLeave={() => data.onHover(null)}
-      onClick={() => data.onToggle(data.path)}
+      onClick={() => data.onOpen(data.path, data.col)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") data.onToggle(data.path);
+        if (e.key === "Enter") data.onOpen(data.path, data.col);
       }}
       onDragStart={(e) => {
         setFolderDragData(e.dataTransfer, data.path);
@@ -249,7 +240,7 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
           title="New folder inside"
           onClick={(e) => {
             e.stopPropagation();
-            data.onStartCreate(data.path);
+            data.onStartCreate(data.path, data.col);
           }}
         >
           <FolderPlus size={12} strokeWidth={2} aria-hidden="true" />
@@ -291,16 +282,35 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
           </button>
         )}
       </span>
-      <Handle type="source" position={Position.Bottom} style={{ left: 24 }} />
       <Handle type="source" position={Position.Right} id="side" />
     </div>
   );
 }
 
-/** Inline input node for naming a new folder, wired beside its parent. */
+/** A file in a column: draggable onto any folder box, nothing to open. */
+function FileChipNode({ data }: NodeProps<Node<FileChipData, "filechip">>) {
+  const { entry } = data;
+  return (
+    <div
+      className="sf-filechip nodrag"
+      title={entry.path}
+      draggable
+      onDragStart={(e) => {
+        setFolderDragData(e.dataTransfer, entry.path);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+    >
+      <Handle type="target" position={Position.Left} />
+      <File size={11} strokeWidth={2} aria-hidden="true" />
+      <span className="sf-folder-name">{entry.name}</span>
+    </div>
+  );
+}
+
+/** Inline input node for naming a new folder, first row of its column. */
 function CreatorNode({ data }: NodeProps<Node<CreatorData, "creator">>) {
   return (
-    <div className="sf-chipnode sf-creator nodrag">
+    <div className="sf-filechip sf-creator nodrag">
       <Handle type="target" position={Position.Left} />
       <FolderPlus size={11} strokeWidth={2} aria-hidden="true" />
       <input
@@ -320,69 +330,26 @@ function CreatorNode({ data }: NodeProps<Node<CreatorData, "creator">>) {
   );
 }
 
-/** A hover-revealed item: a small satellite chip. Clicking a folder chip
- * pins the hovered branch open so the chip becomes part of the tree. */
-function ChipNode({ data }: NodeProps<Node<ChipData, "chip">>) {
-  const { entry } = data;
-  return (
-    <div
-      className={`sf-chipnode nodrag${
-        data.dropTarget === entry.path ? " sf-btree-drop" : ""
-      }`}
-      title={entry.path}
-      draggable
-      onMouseEnter={() => data.onHover(data.parentPath)}
-      onMouseLeave={() => data.onHover(null)}
-      onClick={() => {
-        if (entry.isDirectory) data.onPin(data.parentPath);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && entry.isDirectory) data.onPin(data.parentPath);
-      }}
-      onDragStart={(e) => {
-        setFolderDragData(e.dataTransfer, entry.path);
-        e.dataTransfer.effectAllowed = "move";
-      }}
-      onDragOver={
-        entry.isDirectory
-          ? (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              e.dataTransfer.dropEffect = "move";
-            }
-          : undefined
-      }
-      onDrop={
-        entry.isDirectory ? (e) => data.onDropInto(entry.path, e) : undefined
-      }
-    >
-      <Handle type="target" position={Position.Left} />
-      {entry.isDirectory ? (
-        <Folder size={11} strokeWidth={2} aria-hidden="true" />
-      ) : (
-        <File size={11} strokeWidth={2} aria-hidden="true" />
-      )}
-      <span className="sf-folder-name">{entry.name}</span>
-    </div>
-  );
-}
-
-const nodeTypes = { bubble: BubbleNode, chip: ChipNode, creator: CreatorNode };
+const nodeTypes = {
+  bubble: BubbleNode,
+  filechip: FileChipNode,
+  creator: CreatorNode,
+};
 
 /**
- * The Files page: folders as bubbles on a pannable, zoomable canvas (drag
- * the background, scroll to zoom — same feel as the pipeline editor).
- * Hover a bubble to fan out what's inside it as connected chips; click a
- * chip's folder (or the bubble) to pin the branch open. Drag any bubble or
- * chip onto a folder to move it — journaled and undoable in History.
+ * The Files page as a click-to-cascade timeline: press a folder and its
+ * contents open in a column beside it; press deeper and the trail marches
+ * right. Every opened folder stays highlighted, so backtracking is just
+ * clicking an earlier box (or the same box to fold it shut). Drag any box
+ * onto a folder box to move it — journaled and undoable in History.
  */
 export function FilesView() {
   const setView = useFlowStore((s) => s.setView);
   const [entriesByPath, setEntriesByPath] = useState<Record<string, FsEntry[]>>(
     {},
   );
-  const [pinned, setPinned] = useState<ReadonlySet<string>>(new Set([HOME]));
-  const [hovered, setHovered] = useState<string | null>(null);
+  /** The trail of opened folders, left to right. */
+  const [chain, setChain] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
@@ -392,7 +359,15 @@ export function FilesView() {
   const [hiddenPaths, setHiddenPaths] =
     useState<ReadonlySet<string>>(loadHiddenPaths);
   const [showHidden, setShowHidden] = useState(false);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const load = useCallback(async (path: string) => {
+    const kids = await api.listEntries(path);
+    setEntriesByPath((c) => ({ ...c, [path]: kids }));
+  }, []);
+
+  useEffect(() => {
+    void load(HOME);
+  }, [load]);
 
   const onHideToggle = useCallback((path: string) => {
     setHiddenPaths((prev) => {
@@ -420,138 +395,43 @@ export function FilesView() {
     });
   }, []);
 
-  /** Entries with toggled-off file kinds removed (folders always show). */
+  /** Entries with muted folders and toggled-off file kinds removed. */
   const visibleEntries = useCallback(
     (path: string): FsEntry[] | undefined => {
       const entries = entriesByPath[path];
       if (!entries) return undefined;
-      if (hiddenKinds.size === 0) return entries;
       return entries.filter(
-        (e) => e.isDirectory || !hiddenKinds.has(kindOf(e.name)),
+        (e) =>
+          (e.isDirectory && (showHidden || !hiddenPaths.has(e.path))) ||
+          (!e.isDirectory && !hiddenKinds.has(kindOf(e.name))),
       );
     },
-    [entriesByPath, hiddenKinds],
+    [entriesByPath, hiddenKinds, hiddenPaths, showHidden],
   );
 
-  const load = useCallback(async (path: string) => {
-    const kids = await api.listEntries(path);
-    setEntriesByPath((c) => ({ ...c, [path]: kids }));
-  }, []);
-
-  useEffect(() => {
-    void load(HOME);
-  }, [load]);
-
-  // Prefetch entries for every visible bubble so counts fill in.
-  const folderChildren = useCallback(
-    (path: string) => (entriesByPath[path] ?? []).filter((e) => e.isDirectory),
-    [entriesByPath],
-  );
-  useEffect(() => {
-    for (const parent of pinned) {
-      for (const child of folderChildren(parent)) {
-        if (entriesByPath[child.path] === undefined) void load(child.path);
+  /** Open a folder's contents in the column beside it; clicking the open
+   * folder again folds the trail back to that point. */
+  const onOpen = useCallback(
+    (path: string, col: number) => {
+      if (path === HOME) {
+        setChain([]);
+        return;
       }
-    }
-  }, [pinned, folderChildren, entriesByPath, load]);
-
-  /** Hover with a grace period so the pointer can travel to the chips. */
-  const onHover = useCallback((path: string | null) => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    if (path === null) {
-      hoverTimer.current = setTimeout(() => setHovered(null), 300);
-    } else {
-      setHovered(path);
-    }
-  }, []);
-
-  const onToggle = useCallback(
-    (path: string) => {
-      if (path === HOME) return;
-      setPinned((prev) => {
-        const next = new Set(prev);
-        if (next.has(path)) {
-          for (const p of prev) {
-            if (p === path || p.startsWith(`${path}/`)) next.delete(p);
-          }
-        } else {
-          next.add(path);
-          void load(path);
-        }
-        return next;
+      setChain((prev) => {
+        if (prev[col] === path) return prev.slice(0, col); // fold shut
+        return [...prev.slice(0, col), path];
       });
-    },
-    [load],
-  );
-
-  const onPin = useCallback(
-    (parentPath: string) => {
-      setPinned((prev) => {
-        if (prev.has(parentPath)) return prev;
-        const next = new Set(prev);
-        next.add(parentPath);
-        return next;
-      });
-      void load(parentPath);
-      setHovered(null);
+      void load(path);
     },
     [load],
   );
 
   const refreshAll = useCallback(() => {
     void load(HOME);
-    for (const p of pinned) {
+    for (const p of chain) {
       void load(p);
     }
-  }, [pinned, load]);
-
-  const onTrash = useCallback(
-    async (path: string, name: string) => {
-      if (
-        !window.confirm(
-          `Move "${name}" to the Trash? You can restore it from the Trash.`,
-        )
-      ) {
-        return;
-      }
-      const result = await api.trashEntry(path);
-      setError(result.error);
-      if (!result.error) {
-        setPinned(
-          (prev) =>
-            new Set(
-              [...prev].filter((p) => p !== path && !p.startsWith(`${path}/`)),
-            ),
-        );
-      }
-      refreshAll();
-    },
-    [refreshAll],
-  );
-
-  const onStartCreate = useCallback((path: string) => {
-    setCreatingIn(path);
-    setNewName("");
-  }, []);
-
-  const submitCreate = useCallback(async () => {
-    if (!creatingIn) return;
-    const result = await api.createFolder(creatingIn, newName);
-    setError(result.error);
-    if (!result.error) {
-      setCreatingIn(null);
-      // Pin the parent so the new folder appears as a bubble right away.
-      if (creatingIn !== HOME) {
-        setPinned((prev) => new Set(prev).add(creatingIn));
-      }
-      await load(creatingIn);
-    }
-  }, [creatingIn, newName, load]);
-
-  const cancelCreate = useCallback(() => {
-    setCreatingIn(null);
-    setNewName("");
-  }, []);
+  }, [chain, load]);
 
   const onDropInto = useCallback(
     async (dest: string, e: React.DragEvent) => {
@@ -569,150 +449,203 @@ export function FilesView() {
     [refreshAll],
   );
 
+  const onTrash = useCallback(
+    async (path: string, name: string) => {
+      if (
+        !window.confirm(
+          `Move "${name}" to the Trash? You can restore it from the Trash.`,
+        )
+      ) {
+        return;
+      }
+      const result = await api.trashEntry(path);
+      setError(result.error);
+      if (!result.error) {
+        setChain((prev) => {
+          const idx = prev.indexOf(path);
+          return idx === -1 ? prev : prev.slice(0, idx);
+        });
+      }
+      refreshAll();
+    },
+    [refreshAll],
+  );
+
+  const onStartCreate = useCallback(
+    (path: string, col: number) => {
+      setCreatingIn(path);
+      setNewName("");
+      // Open the folder so the new folder's column is visible.
+      if (path !== HOME) {
+        setChain((prev) =>
+          prev[col] === path ? prev : [...prev.slice(0, col), path],
+        );
+        void load(path);
+      }
+    },
+    [load],
+  );
+
+  const submitCreate = useCallback(async () => {
+    if (!creatingIn) return;
+    const result = await api.createFolder(creatingIn, newName);
+    setError(result.error);
+    if (!result.error) {
+      setCreatingIn(null);
+      await load(creatingIn);
+    }
+  }, [creatingIn, newName, load]);
+
+  const cancelCreate = useCallback(() => {
+    setCreatingIn(null);
+    setNewName("");
+  }, []);
+
   const { nodes, edges } = useMemo(() => {
     const nodes: AnyNode[] = [];
     const edges: Edge[] = [];
 
-    // Outline layout: every bubble takes one row; children stack vertically
-    // beneath their parent, indented one step right.
-    let row = 0;
-    const place = (
-      path: string,
-      name: string,
-      isRoot: boolean,
-      depth: number,
-    ) => {
-      nodes.push({
-        id: path,
-        type: "bubble",
-        position: { x: depth * INDENT, y: row * ROW_H },
-        draggable: false,
-        data: {
-          path,
-          name,
-          isRoot,
-          count: visibleEntries(path)?.length ?? null,
-          pinned: pinned.has(path),
-          onHover,
-          onToggle,
-          onDropInto,
-          onTrash,
-          onStartCreate,
-          onHideToggle,
-          hidden: hiddenPaths.has(path),
-          dropTarget,
-        },
-      });
-      row++;
-      if (!pinned.has(path)) return;
-      const kids = folderChildren(path).filter(
-        (k) => showHidden || !hiddenPaths.has(k.path),
-      );
-      for (const kid of kids) {
-        edges.push({ id: `e-${kid.path}`, source: path, target: kid.path });
-        place(kid.path, kid.name, false, depth + 1);
-      }
-    };
-    place(HOME, "Home", true, 0);
+    // The Home box, then one column per opened folder in the trail.
+    nodes.push({
+      id: HOME,
+      type: "bubble",
+      position: { x: 0, y: 0 },
+      draggable: false,
+      data: {
+        path: HOME,
+        name: "Home",
+        isRoot: true,
+        col: -1,
+        open: true,
+        count: visibleEntries(HOME)?.length ?? null,
+        onOpen,
+        onDropInto,
+        onTrash,
+        onStartCreate,
+        onHideToggle,
+        hidden: false,
+        dropTarget,
+      },
+    });
 
-    // Hover preview: fan the hovered folder's hidden contents out as chips.
-    const hoveredNode = hovered
-      ? nodes.find((n) => n.id === hovered)
-      : undefined;
-    if (hovered && hoveredNode) {
-      const contents = visibleEntries(hovered) ?? [];
-      // Folders already shown as bubbles (pinned parent) are not repeated,
-      // and folders the user muted stay out of the fan too.
-      const fanContents = (
-        pinned.has(hovered) ? contents.filter((e) => !e.isDirectory) : contents
-      ).filter((e) => !e.isDirectory || showHidden || !hiddenPaths.has(e.path));
-      const chips = fanContents.slice(0, MAX_CHIPS);
-      const n = chips.length;
-      chips.forEach((entry, i) => {
-        // A vertical column beside the bubble, centered on it.
+    const parents = [HOME, ...chain];
+    for (let col = 0; col < parents.length; col++) {
+      const parent = parents[col];
+      const x = (col + 1) * COL_W;
+      let row = 0;
+
+      if (creatingIn === parent) {
         nodes.push({
-          id: `chip:${entry.path}`,
-          type: "chip",
-          position: {
-            x: hoveredNode.position.x + BUBBLE_W + CHIP_X_GAP,
-            y: hoveredNode.position.y + (i - (n - 1) / 2) * CHIP_ROW_H,
-          },
+          id: "creator",
+          type: "creator",
+          position: { x, y: row * ROW_H },
           draggable: false,
           zIndex: 10,
           data: {
-            entry,
-            parentPath: hovered,
-            onHover,
-            onPin,
-            onDropInto,
-            dropTarget,
+            parentName:
+              parent === HOME ? "Home" : (parent.split("/").pop() ?? parent),
+            value: newName,
+            onChange: setNewName,
+            onSubmit: submitCreate,
+            onCancel: cancelCreate,
           },
         });
         edges.push({
-          id: `ce-${entry.path}`,
-          source: hovered,
+          id: "creator-edge",
+          source: parent,
           sourceHandle: "side",
-          target: `chip:${entry.path}`,
+          target: "creator",
           style: { strokeDasharray: "4 3" },
         });
-      });
-    }
+        row++;
+      }
 
-    // Inline naming input for a folder being created.
-    const creatorParent = creatingIn
-      ? nodes.find((n) => n.id === creatingIn)
-      : undefined;
-    if (creatingIn && creatorParent) {
-      nodes.push({
-        id: "creator",
-        type: "creator",
-        position: {
-          x: creatorParent.position.x + BUBBLE_W + CHIP_X_GAP,
-          y: creatorParent.position.y,
-        },
-        draggable: false,
-        zIndex: 10,
-        data: {
-          parentName:
-            creatingIn === HOME
-              ? "Home"
-              : (creatorParent.data as BubbleData).name,
-          value: newName,
-          onChange: setNewName,
-          onSubmit: submitCreate,
-          onCancel: cancelCreate,
-        },
-      });
-      edges.push({
-        id: "creator-edge",
-        source: creatingIn,
-        sourceHandle: "side",
-        target: "creator",
-        style: { strokeDasharray: "4 3" },
-      });
+      const entries = visibleEntries(parent) ?? [];
+      const shown = entries.slice(0, MAX_ROWS);
+      for (const entry of shown) {
+        if (entry.isDirectory) {
+          nodes.push({
+            id: entry.path,
+            type: "bubble",
+            position: { x, y: row * ROW_H },
+            draggable: false,
+            data: {
+              path: entry.path,
+              name: entry.name,
+              isRoot: false,
+              col,
+              open: chain[col] === entry.path,
+              count: visibleEntries(entry.path)?.length ?? null,
+              onOpen,
+              onDropInto,
+              onTrash,
+              onStartCreate,
+              onHideToggle,
+              hidden: hiddenPaths.has(entry.path),
+              dropTarget,
+            },
+          });
+        } else {
+          nodes.push({
+            id: entry.path,
+            type: "filechip",
+            position: { x, y: row * ROW_H },
+            draggable: false,
+            data: { entry },
+          });
+        }
+        edges.push({
+          id: `e-${entry.path}`,
+          source: parent,
+          sourceHandle: "side",
+          target: entry.path,
+        });
+        row++;
+      }
+      if (entries.length > shown.length) {
+        nodes.push({
+          id: `more-${parent}`,
+          type: "filechip",
+          position: { x, y: row * ROW_H },
+          draggable: false,
+          data: {
+            entry: {
+              name: `+${entries.length - shown.length} more`,
+              path: parent,
+              isDirectory: false,
+            },
+          },
+        });
+      }
     }
 
     return { nodes, edges };
   }, [
-    pinned,
-    hovered,
+    chain,
     dropTarget,
     creatingIn,
     newName,
     hiddenPaths,
-    showHidden,
-    onHideToggle,
-    folderChildren,
     visibleEntries,
-    onHover,
-    onToggle,
-    onPin,
+    onOpen,
     onDropInto,
     onTrash,
     onStartCreate,
+    onHideToggle,
     submitCreate,
     cancelCreate,
   ]);
+
+  // Prefetch entries for visible folders so counts fill in.
+  useEffect(() => {
+    for (const parent of [HOME, ...chain]) {
+      for (const entry of entriesByPath[parent] ?? []) {
+        if (entry.isDirectory && entriesByPath[entry.path] === undefined) {
+          void load(entry.path);
+        }
+      }
+    }
+  }, [chain, entriesByPath, load]);
 
   return (
     <div className="sf-files">
@@ -726,9 +659,9 @@ export function FilesView() {
           Pipelines
         </button>
         <span className="sf-files-title">
-          Hover a folder to peek inside it — click to pin the branch open. Drag
-          anything onto a folder to move it; undo in History. Drag the
-          background to pan, scroll to zoom.
+          Click a folder to open it in the next column — the highlighted trail
+          is your path back. Drag any box onto a folder to move it; undo in
+          History.
         </span>
         <button
           type="button"
