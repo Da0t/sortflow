@@ -120,12 +120,14 @@ describe("Auto Setup UI", () => {
     expect(
       screen.getByRole("combobox", { name: /folder to scan/i }),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: /auto setup/i })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /run auto setup/i }),
+    ).toBeTruthy();
   });
 
   it("clicking Auto Setup button loads the pipeline and shows the banner", async () => {
     render(<App />);
-    const btn = screen.getByRole("button", { name: /auto setup/i });
+    const btn = screen.getByRole("button", { name: /run auto setup/i });
     fireEvent.click(btn);
 
     // Wait for the async autoSetup call to resolve
@@ -150,7 +152,7 @@ describe("Auto Setup UI", () => {
 
   it("banner shows rule count and bucket summary", async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /auto setup/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run auto setup/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/drafted 2 rules/i)).toBeTruthy();
@@ -162,7 +164,7 @@ describe("Auto Setup UI", () => {
 
   it("banner can be dismissed", async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /auto setup/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run auto setup/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Scanned 160 files/i)).toBeTruthy();
@@ -181,7 +183,7 @@ describe("Auto Setup UI", () => {
       new Error("permission denied"),
     );
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /auto setup/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run auto setup/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Auto Setup failed/i)).toBeTruthy();
@@ -195,7 +197,7 @@ describe("Auto Setup UI", () => {
       screen.getByRole("combobox", { name: /sort files into/i }),
       { target: { value: "~/Desktop" } },
     );
-    fireEvent.click(screen.getByRole("button", { name: /auto setup/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run auto setup/i }));
     await waitFor(() => {
       expect(api.autoSetup).toHaveBeenCalledWith("~/Downloads", "~/Desktop");
     });
@@ -208,9 +210,27 @@ describe("Auto Setup UI", () => {
       screen.getByRole("combobox", { name: /sort files into/i }),
       { target: { value: "" } },
     );
-    fireEvent.click(screen.getByRole("button", { name: /auto setup/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run auto setup/i }));
     await waitFor(() => {
       expect(api.autoSetup).toHaveBeenCalledWith("~/Downloads", undefined);
     });
+  });
+
+  it("collapsing a palette section hides its contents", () => {
+    render(<App />);
+    expect(
+      screen.getByRole("button", { name: /run auto setup/i }),
+    ).toBeTruthy();
+    // Section headers are toggle buttons with exact-name accessibility.
+    fireEvent.click(screen.getByRole("button", { name: "Auto Setup" }));
+    expect(
+      screen.queryByRole("button", { name: /run auto setup/i }),
+    ).toBeNull();
+    // Other sections are untouched.
+    expect(screen.getByRole("button", { name: /add watch/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Auto Setup" }));
+    expect(
+      screen.getByRole("button", { name: /run auto setup/i }),
+    ).toBeTruthy();
   });
 });

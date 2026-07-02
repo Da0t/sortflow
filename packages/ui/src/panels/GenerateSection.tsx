@@ -40,9 +40,6 @@ export function GenerateSection() {
 
   return (
     <>
-      <span className="sf-palette-label" style={{ marginTop: "8px" }}>
-        Describe It
-      </span>
       <textarea
         className="sf-generate-input"
         aria-label="Describe your pipeline"

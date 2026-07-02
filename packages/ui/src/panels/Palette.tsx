@@ -1,12 +1,85 @@
 import type { FolderScan, NodeKind } from "@sortflow/engine";
-import { Filter, FolderOutput, Inbox, Sparkles } from "lucide-react";
+import {
+  ChevronRight,
+  Filter,
+  FolderOutput,
+  Inbox,
+  Sparkles,
+} from "lucide-react";
 import { useState } from "react";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { api } from "../bridge";
 import { loadDestBase, saveDestBase } from "../lib/destBase";
 import { useFlowStore } from "../store";
 import { FolderTree } from "./FolderTree";
 import { GenerateSection } from "./GenerateSection";
+
+const SECTIONS_KEY = "sf-palette-collapsed";
+
+/** Guarded like the other localStorage helpers: broken storage just means
+ * collapse choices don't persist. */
+function loadCollapsed(): Record<string, boolean> {
+  try {
+    return JSON.parse(
+      window.localStorage.getItem(SECTIONS_KEY) ?? "{}",
+    ) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+function saveCollapsed(state: Record<string, boolean>): void {
+  try {
+    window.localStorage.setItem(SECTIONS_KEY, JSON.stringify(state));
+  } catch {
+    // Session-only.
+  }
+}
+
+/** Collapsible palette section. Collapsing a section hands its space to the
+ * ones that remain — collapse the AI sections and Your Folders gets most of
+ * the sidebar. `grow` lets a section (the folder tree) fill leftover height. */
+function PaletteSection({
+  id,
+  label,
+  grow,
+  children,
+}: {
+  id: string;
+  label: string;
+  grow?: boolean;
+  children: ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState(
+    () => loadCollapsed()[id] ?? false,
+  );
+  const toggle = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    saveCollapsed({ ...loadCollapsed(), [id]: next });
+  };
+  return (
+    <section
+      className={`sf-section${grow && !collapsed ? " sf-section-grow" : ""}`}
+    >
+      <button
+        type="button"
+        className="sf-section-header"
+        aria-expanded={!collapsed}
+        onClick={toggle}
+      >
+        <ChevronRight
+          size={12}
+          strokeWidth={2}
+          aria-hidden="true"
+          className={`sf-folder-chevron${collapsed ? "" : " sf-open"}`}
+        />
+        {label}
+      </button>
+      {!collapsed && children}
+    </section>
+  );
+}
 
 const KINDS: Array<{ kind: NodeKind; label: string; icon: ReactElement }> = [
   {
@@ -82,7 +155,6 @@ function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
 
   return (
     <>
-      <span className="sf-palette-label">Auto Setup</span>
       <select
         value={folder}
         onChange={(e) => setFolder(e.target.value)}
@@ -119,7 +191,7 @@ function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
         disabled={busy}
       >
         <Sparkles size={16} strokeWidth={2} aria-hidden="true" />
-        {busy ? "Scanning…" : "Auto Setup"}
+        {busy ? "Scanning…" : "Run Auto Setup"}
       </button>
     </>
   );
@@ -134,27 +206,29 @@ export function Palette({ onAutoSetupResult, onAutoSetupError }: PaletteProps) {
   const addNode = useFlowStore((s) => s.addNode);
   return (
     <div className="sf-palette">
-      <AutoSetupSection
-        onResult={onAutoSetupResult ?? (() => {})}
-        onError={onAutoSetupError ?? (() => {})}
-      />
-      <GenerateSection />
-      <span className="sf-palette-label" style={{ marginTop: "8px" }}>
-        Nodes
-      </span>
-      {KINDS.map(({ kind, label, icon }) => (
-        <button key={kind} type="button" onClick={() => addNode(kind)}>
-          {icon}
-          {label}
-        </button>
-      ))}
-      <span className="sf-palette-label" style={{ marginTop: "8px" }}>
-        Your Folders
-      </span>
-      <p className="sf-folder-hint">
-        Drag a folder onto the canvas or a Move node
-      </p>
-      <FolderTree />
+      <PaletteSection id="autosetup" label="Auto Setup">
+        <AutoSetupSection
+          onResult={onAutoSetupResult ?? (() => {})}
+          onError={onAutoSetupError ?? (() => {})}
+        />
+      </PaletteSection>
+      <PaletteSection id="describe" label="Describe It">
+        <GenerateSection />
+      </PaletteSection>
+      <PaletteSection id="nodes" label="Nodes">
+        {KINDS.map(({ kind, label, icon }) => (
+          <button key={kind} type="button" onClick={() => addNode(kind)}>
+            {icon}
+            {label}
+          </button>
+        ))}
+      </PaletteSection>
+      <PaletteSection id="folders" label="Your Folders" grow>
+        <p className="sf-folder-hint">
+          Drag a folder onto the canvas or a Move node
+        </p>
+        <FolderTree />
+      </PaletteSection>
     </div>
   );
 }
