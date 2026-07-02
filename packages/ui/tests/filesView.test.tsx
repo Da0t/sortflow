@@ -11,11 +11,12 @@ const HOME_ENTRIES: FsEntry[] = [
 ];
 const DOCS_ENTRIES: FsEntry[] = [
   { name: "School", path: "/u/Documents/School", isDirectory: true },
+  { name: "essay.txt", path: "/u/Documents/essay.txt", isDirectory: false },
 ];
 
 function mockListing() {
   vi.spyOn(api, "listEntries").mockImplementation(async (path: string) =>
-    path === "/u/Documents" ? DOCS_ENTRIES : HOME_ENTRIES,
+    path.startsWith("/u/Documents") ? DOCS_ENTRIES : HOME_ENTRIES,
   );
 }
 
@@ -23,56 +24,55 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("FilesView (connected tree)", () => {
-  it("renders one tree rooted at Home with files and folders", async () => {
+describe("FilesView (bubbles)", () => {
+  it("shows folders as bubbles and keeps files tucked inside counts", async () => {
     mockListing();
     render(<FilesView />);
+    expect(await screen.findByText("Home")).toBeTruthy();
     expect(await screen.findByText("Documents")).toBeTruthy();
-    expect(screen.getByText("report.pdf")).toBeTruthy();
-    expect(screen.getByText("Home")).toBeTruthy();
+    // Files are not drawn until their folder is hovered.
+    expect(screen.queryByText("report.pdf")).toBeNull();
   });
 
-  it("expands and collapses branches in place", async () => {
+  it("hovering a bubble fans out its contents as chips", async () => {
     mockListing();
-    render(<FilesView />);
-    fireEvent.click(await screen.findByText("Documents"));
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    fireEvent.mouseEnter(
+      container.querySelector('[title="/u/Documents"]') as HTMLElement,
+    );
     expect(await screen.findByText("School")).toBeTruthy();
-    fireEvent.click(screen.getByText("Documents"));
-    await waitFor(() => expect(screen.queryByText("School")).toBeNull());
+    expect(screen.getByText("essay.txt")).toBeTruthy();
   });
 
-  it("dragging a file onto a folder row performs a journaled move", async () => {
+  it("clicking a folder chip pins the branch open", async () => {
+    mockListing();
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    fireEvent.mouseEnter(
+      container.querySelector('[title="/u/Documents"]') as HTMLElement,
+    );
+    fireEvent.click(await screen.findByText("School"));
+    // The branch is pinned: School is now a bubble, the file chip is gone.
+    expect(await screen.findByText("School")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("essay.txt")).toBeNull());
+  });
+
+  it("dropping an entry on a bubble performs a journaled move", async () => {
     mockListing();
     const move = vi.spyOn(api, "moveEntry").mockResolvedValue({ error: null });
-    render(<FilesView />);
-    const folderRow = (await screen.findByText("Documents")).closest(
-      "button",
-    ) as HTMLButtonElement;
-    fireEvent.drop(folderRow, {
-      dataTransfer: {
-        getData: (t: string) => (t === FOLDER_MIME ? "/u/report.pdf" : ""),
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    fireEvent.drop(
+      container.querySelector('[title="/u/Documents"]') as HTMLElement,
+      {
+        dataTransfer: {
+          getData: (t: string) => (t === FOLDER_MIME ? "/u/report.pdf" : ""),
+        },
       },
-    });
+    );
     await waitFor(() => {
       expect(move).toHaveBeenCalledWith("/u/report.pdf", "/u/Documents");
-    });
-  });
-
-  it("dropping on the Home header moves into the home folder", async () => {
-    mockListing();
-    const move = vi.spyOn(api, "moveEntry").mockResolvedValue({ error: null });
-    render(<FilesView />);
-    const home = (await screen.findByText("Home")).closest(
-      "button",
-    ) as HTMLButtonElement;
-    fireEvent.drop(home, {
-      dataTransfer: {
-        getData: (t: string) =>
-          t === FOLDER_MIME ? "/u/Documents/School" : "",
-      },
-    });
-    await waitFor(() => {
-      expect(move).toHaveBeenCalledWith("/u/Documents/School", "~");
     });
   });
 
@@ -81,15 +81,16 @@ describe("FilesView (connected tree)", () => {
     vi.spyOn(api, "moveEntry").mockResolvedValue({
       error: "Can't move a folder into itself",
     });
-    render(<FilesView />);
-    const folderRow = (await screen.findByText("Documents")).closest(
-      "button",
-    ) as HTMLButtonElement;
-    fireEvent.drop(folderRow, {
-      dataTransfer: {
-        getData: (t: string) => (t === FOLDER_MIME ? "/u/Documents" : ""),
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    fireEvent.drop(
+      container.querySelector('[title="/u/Documents"]') as HTMLElement,
+      {
+        dataTransfer: {
+          getData: (t: string) => (t === FOLDER_MIME ? "/u/Documents" : ""),
+        },
       },
-    });
+    );
     expect(
       await screen.findByText(/can't move a folder into itself/i),
     ).toBeTruthy();

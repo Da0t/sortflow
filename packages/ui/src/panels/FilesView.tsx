@@ -1,39 +1,161 @@
 import {
-  ArrowLeft,
-  ChevronDown,
-  File,
-  Folder,
-  House,
-  RefreshCw,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import type { ReactElement } from "react";
+  Background,
+  BackgroundVariant,
+  Controls,
+  type Edge,
+  Handle,
+  MiniMap,
+  type Node,
+  type NodeProps,
+  Position,
+  ReactFlow,
+  ReactFlowProvider,
+} from "@xyflow/react";
+import { ArrowLeft, File, Folder, House, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type FsEntry, api } from "../bridge";
 import { readFolderDragPath, setFolderDragData } from "../lib/folderDrop";
 import { useFlowStore } from "../store";
 
 const HOME = "~";
-/** Widest a single branch fans out before collapsing into "+N more". */
-const MAX_KIDS = 12;
+const MAX_CHIPS = 8;
+const BUBBLE_W = 150;
+const LEVEL_H = 120;
+const SIB_GAP = 24;
+const CHIP_W = 110;
+const CHIP_FAN_Y = 84;
+
+type BubbleData = {
+  path: string;
+  name: string;
+  isRoot: boolean;
+  count: number | null;
+  pinned: boolean;
+  onHover: (path: string | null) => void;
+  onToggle: (path: string) => void;
+  onDropInto: (dest: string, e: React.DragEvent) => void;
+  dropTarget: string | null;
+};
+
+type ChipData = {
+  entry: FsEntry;
+  parentPath: string;
+  onHover: (path: string | null) => void;
+  onPin: (parentPath: string) => void;
+  onDropInto: (dest: string, e: React.DragEvent) => void;
+  dropTarget: string | null;
+};
+
+type AnyNode = Node<BubbleData, "bubble"> | Node<ChipData, "chip">;
+
+/** A folder as a bubble: name + item count. Hovering fans its contents out
+ * as satellite chips; clicking toggles it open as a pinned branch. */
+function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
+  return (
+    <div
+      className={`sf-bubble${data.isRoot ? " sf-bubble-root" : ""}${
+        data.dropTarget === data.path ? " sf-btree-drop" : ""
+      }`}
+      title={data.path}
+      draggable={!data.isRoot}
+      onMouseEnter={() => data.onHover(data.path)}
+      onMouseLeave={() => data.onHover(null)}
+      onClick={() => data.onToggle(data.path)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") data.onToggle(data.path);
+      }}
+      onDragStart={(e) => {
+        setFolderDragData(e.dataTransfer, data.path);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(e) => data.onDropInto(data.path, e)}
+    >
+      {!data.isRoot && <Handle type="target" position={Position.Top} />}
+      {data.isRoot ? (
+        <House size={13} strokeWidth={2} aria-hidden="true" />
+      ) : (
+        <Folder size={13} strokeWidth={2} aria-hidden="true" />
+      )}
+      <span className="sf-folder-name">{data.name}</span>
+      {data.count !== null && (
+        <span className="sf-bubble-count">{data.count}</span>
+      )}
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  );
+}
+
+/** A hover-revealed item: a small satellite chip. Clicking a folder chip
+ * pins the hovered branch open so the chip becomes part of the tree. */
+function ChipNode({ data }: NodeProps<Node<ChipData, "chip">>) {
+  const { entry } = data;
+  return (
+    <div
+      className={`sf-chipnode${
+        data.dropTarget === entry.path ? " sf-btree-drop" : ""
+      }`}
+      title={entry.path}
+      draggable
+      onMouseEnter={() => data.onHover(data.parentPath)}
+      onMouseLeave={() => data.onHover(null)}
+      onClick={() => {
+        if (entry.isDirectory) data.onPin(data.parentPath);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && entry.isDirectory) data.onPin(data.parentPath);
+      }}
+      onDragStart={(e) => {
+        setFolderDragData(e.dataTransfer, entry.path);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragOver={
+        entry.isDirectory
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "move";
+            }
+          : undefined
+      }
+      onDrop={
+        entry.isDirectory ? (e) => data.onDropInto(entry.path, e) : undefined
+      }
+    >
+      <Handle type="target" position={Position.Top} />
+      {entry.isDirectory ? (
+        <Folder size={11} strokeWidth={2} aria-hidden="true" />
+      ) : (
+        <File size={11} strokeWidth={2} aria-hidden="true" />
+      )}
+      <span className="sf-folder-name">{entry.name}</span>
+    </div>
+  );
+}
+
+const nodeTypes = { bubble: BubbleNode, chip: ChipNode };
 
 /**
- * The Files page: your directory drawn as a top-down tree diagram — every
- * file and folder is a box, children branch out beneath their parent with
- * connector lines, binary-tree style. Click a folder box to expand its
- * branch; drag any box onto a folder box to move it. Every move is
- * journaled: it shows in History and can be undone.
+ * The Files page: folders as bubbles on a pannable, zoomable canvas (drag
+ * the background, scroll to zoom — same feel as the pipeline editor).
+ * Hover a bubble to fan out what's inside it as connected chips; click a
+ * chip's folder (or the bubble) to pin the branch open. Drag any bubble or
+ * chip onto a folder to move it — journaled and undoable in History.
  */
 export function FilesView() {
   const setView = useFlowStore((s) => s.setView);
   const [entriesByPath, setEntriesByPath] = useState<Record<string, FsEntry[]>>(
     {},
   );
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [pinned, setPinned] = useState<ReadonlySet<string>>(new Set([HOME]));
+  const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(0.8);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (path: string) => {
     const kids = await api.listEntries(path);
@@ -44,12 +166,35 @@ export function FilesView() {
     void load(HOME);
   }, [load]);
 
-  const toggle = useCallback(
+  // Prefetch entries for every visible bubble so counts fill in.
+  const folderChildren = useCallback(
+    (path: string) => (entriesByPath[path] ?? []).filter((e) => e.isDirectory),
+    [entriesByPath],
+  );
+  useEffect(() => {
+    for (const parent of pinned) {
+      for (const child of folderChildren(parent)) {
+        if (entriesByPath[child.path] === undefined) void load(child.path);
+      }
+    }
+  }, [pinned, folderChildren, entriesByPath, load]);
+
+  /** Hover with a grace period so the pointer can travel to the chips. */
+  const onHover = useCallback((path: string | null) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    if (path === null) {
+      hoverTimer.current = setTimeout(() => setHovered(null), 300);
+    } else {
+      setHovered(path);
+    }
+  }, []);
+
+  const onToggle = useCallback(
     (path: string) => {
-      setExpanded((prev) => {
+      if (path === HOME) return;
+      setPinned((prev) => {
         const next = new Set(prev);
         if (next.has(path)) {
-          // Collapse the folder and everything beneath it.
           for (const p of prev) {
             if (p === path || p.startsWith(`${path}/`)) next.delete(p);
           }
@@ -63,116 +208,146 @@ export function FilesView() {
     [load],
   );
 
+  const onPin = useCallback(
+    (parentPath: string) => {
+      setPinned((prev) => {
+        if (prev.has(parentPath)) return prev;
+        const next = new Set(prev);
+        next.add(parentPath);
+        return next;
+      });
+      void load(parentPath);
+      setHovered(null);
+    },
+    [load],
+  );
+
   const refreshAll = useCallback(() => {
     void load(HOME);
-    for (const p of expanded) {
+    for (const p of pinned) {
       void load(p);
     }
-  }, [expanded, load]);
+  }, [pinned, load]);
 
-  const drop = async (destDir: string, e: React.DragEvent) => {
-    const src = readFolderDragPath(e.dataTransfer);
-    setDropTarget(null);
-    if (!src) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const result = await api.moveEntry(src, destDir);
-    setError(result.error);
-    // History listens to the shared refresh tick.
-    useFlowStore.getState().bumpRefresh();
-    refreshAll();
-  };
+  const onDropInto = useCallback(
+    async (dest: string, e: React.DragEvent) => {
+      const src = readFolderDragPath(e.dataTransfer);
+      setDropTarget(null);
+      if (!src) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const result = await api.moveEntry(src, dest);
+      setError(result.error);
+      // History listens to the shared refresh tick.
+      useFlowStore.getState().bumpRefresh();
+      refreshAll();
+    },
+    [refreshAll],
+  );
 
-  const dragOver = (destDir: string, e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = "move";
-    setDropTarget(destDir);
-  };
+  const { nodes, edges } = useMemo(() => {
+    const nodes: AnyNode[] = [];
+    const edges: Edge[] = [];
 
-  const renderNode = (entry: FsEntry): ReactElement => {
-    const isOpen = entry.isDirectory && expanded.has(entry.path);
-    const kids = entriesByPath[entry.path];
-    const shown = kids?.slice(0, MAX_KIDS) ?? [];
-    const extra = (kids?.length ?? 0) - shown.length;
-    return (
-      <div key={entry.path} className="sf-btree-sub">
-        <button
-          type="button"
-          className={`sf-btree-box${
-            entry.isDirectory ? " sf-btree-folder" : ""
-          }${dropTarget === entry.path ? " sf-btree-drop" : ""}`}
-          title={entry.path}
-          draggable
-          onClick={() => toggle(entry.path)}
-          onDragStart={(e) => {
-            setFolderDragData(e.dataTransfer, entry.path);
-            e.dataTransfer.effectAllowed = "move";
-          }}
-          onDragOver={
-            entry.isDirectory ? (e) => dragOver(entry.path, e) : undefined
-          }
-          onDragLeave={() => setDropTarget(null)}
-          onDrop={
-            entry.isDirectory ? (e) => void drop(entry.path, e) : undefined
-          }
-        >
-          {entry.isDirectory ? (
-            <Folder
-              size={12}
-              strokeWidth={2}
-              aria-hidden="true"
-              className="sf-folder-icon"
-            />
-          ) : (
-            <File
-              size={12}
-              strokeWidth={2}
-              aria-hidden="true"
-              className="sf-folder-icon"
-            />
-          )}
-          <span className="sf-folder-name">{entry.name}</span>
-          {entry.isDirectory && (
-            <ChevronDown
-              size={11}
-              strokeWidth={2}
-              aria-hidden="true"
-              className={`sf-btree-chevron${isOpen ? " sf-open" : ""}`}
-            />
-          )}
-        </button>
-        {isOpen && (
-          <div className="sf-btree-children">
-            {kids === undefined ? (
-              <div className="sf-btree-sub">
-                <span className="sf-btree-box sf-btree-note">Loading…</span>
-              </div>
-            ) : kids.length === 0 ? (
-              <div className="sf-btree-sub">
-                <span className="sf-btree-box sf-btree-note">Empty</span>
-              </div>
-            ) : (
-              <>
-                {shown.map(renderNode)}
-                {extra > 0 && (
-                  <div className="sf-btree-sub">
-                    <span className="sf-btree-box sf-btree-note">
-                      +{extra} more
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
+    // Subtree width of the pinned-folder tree.
+    const width = (path: string): number => {
+      if (!pinned.has(path)) return BUBBLE_W;
+      const kids = folderChildren(path);
+      if (kids.length === 0) return BUBBLE_W;
+      const total =
+        kids.reduce((sum, k) => sum + width(k.path), 0) +
+        SIB_GAP * (kids.length - 1);
+      return Math.max(BUBBLE_W, total);
+    };
 
-  const rootEntries = entriesByPath[HOME];
-  const rootShown = rootEntries?.slice(0, MAX_KIDS) ?? [];
-  const rootExtra = (rootEntries?.length ?? 0) - rootShown.length;
+    const place = (
+      path: string,
+      name: string,
+      isRoot: boolean,
+      xCenter: number,
+      depth: number,
+    ) => {
+      nodes.push({
+        id: path,
+        type: "bubble",
+        position: { x: xCenter - BUBBLE_W / 2, y: depth * LEVEL_H },
+        draggable: false,
+        data: {
+          path,
+          name,
+          isRoot,
+          count: entriesByPath[path]?.length ?? null,
+          pinned: pinned.has(path),
+          onHover,
+          onToggle,
+          onDropInto,
+          dropTarget,
+        },
+      });
+      if (!pinned.has(path)) return;
+      const kids = folderChildren(path);
+      let x = xCenter - width(path) / 2;
+      for (const kid of kids) {
+        const w = width(kid.path);
+        place(kid.path, kid.name, false, x + w / 2, depth + 1);
+        edges.push({ id: `e-${kid.path}`, source: path, target: kid.path });
+        x += w + SIB_GAP;
+      }
+    };
+    place(HOME, "Home", true, 0, 0);
+
+    // Hover preview: fan the hovered folder's hidden contents out as chips.
+    const hoveredNode = hovered
+      ? nodes.find((n) => n.id === hovered)
+      : undefined;
+    if (hovered && hoveredNode) {
+      const contents = entriesByPath[hovered] ?? [];
+      // Folders already shown as bubbles (pinned parent) are not repeated.
+      const hidden = pinned.has(hovered)
+        ? contents.filter((e) => !e.isDirectory)
+        : contents;
+      const chips = hidden.slice(0, MAX_CHIPS);
+      const n = chips.length;
+      chips.forEach((entry, i) => {
+        const offset = (i - (n - 1) / 2) * (CHIP_W + 12);
+        nodes.push({
+          id: `chip:${entry.path}`,
+          type: "chip",
+          position: {
+            x: hoveredNode.position.x + BUBBLE_W / 2 + offset - CHIP_W / 2,
+            y: hoveredNode.position.y + CHIP_FAN_Y,
+          },
+          draggable: false,
+          data: {
+            entry,
+            parentPath: hovered,
+            onHover,
+            onPin,
+            onDropInto,
+            dropTarget,
+          },
+        });
+        edges.push({
+          id: `ce-${entry.path}`,
+          source: hovered,
+          target: `chip:${entry.path}`,
+          style: { strokeDasharray: "4 3" },
+        });
+      });
+    }
+
+    return { nodes, edges };
+  }, [
+    entriesByPath,
+    pinned,
+    hovered,
+    dropTarget,
+    folderChildren,
+    onHover,
+    onToggle,
+    onPin,
+    onDropInto,
+  ]);
 
   return (
     <div className="sf-files">
@@ -186,26 +361,10 @@ export function FilesView() {
           Pipelines
         </button>
         <span className="sf-files-title">
-          Your directory as a branching tree — click a folder box to open its
-          branch, drag any box onto a folder box to move it. Undo in History.
+          Hover a folder to peek inside it — click to pin the branch open. Drag
+          anything onto a folder to move it; undo in History. Drag the
+          background to pan, scroll to zoom.
         </span>
-        <button
-          type="button"
-          className="sf-files-back"
-          aria-label="Zoom out"
-          onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(1)))}
-        >
-          <ZoomOut size={13} strokeWidth={2} aria-hidden="true" />
-        </button>
-        <span className="sf-files-zoom">{Math.round(zoom * 100)}%</span>
-        <button
-          type="button"
-          className="sf-files-back"
-          aria-label="Zoom in"
-          onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(1)))}
-        >
-          <ZoomIn size={13} strokeWidth={2} aria-hidden="true" />
-        </button>
         <button
           type="button"
           className="sf-files-back"
@@ -221,42 +380,36 @@ export function FilesView() {
           {error}
         </p>
       )}
-      <div className="sf-btree-scroll">
-        <div className="sf-btree" style={{ zoom }}>
-          <div className="sf-btree-sub sf-btree-rootsub">
-            <button
-              type="button"
-              className={`sf-btree-box sf-btree-folder sf-btree-root${
-                dropTarget === HOME ? " sf-btree-drop" : ""
-              }`}
-              title="Your home folder"
-              onDragOver={(e) => dragOver(HOME, e)}
-              onDragLeave={() => setDropTarget(null)}
-              onDrop={(e) => void drop(HOME, e)}
-            >
-              <House size={13} strokeWidth={2} aria-hidden="true" />
-              Home
-            </button>
-            <div className="sf-btree-children">
-              {rootEntries === undefined ? (
-                <div className="sf-btree-sub">
-                  <span className="sf-btree-box sf-btree-note">Loading…</span>
-                </div>
-              ) : (
-                <>
-                  {rootShown.map(renderNode)}
-                  {rootExtra > 0 && (
-                    <div className="sf-btree-sub">
-                      <span className="sf-btree-box sf-btree-note">
-                        +{rootExtra} more
-                      </span>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+      <div
+        className="sf-files-canvas"
+        onDragOver={(e) => {
+          // Track which folder the drag is over for highlight purposes.
+          const el = (e.target as HTMLElement).closest("[title]");
+          setDropTarget(el?.getAttribute("title") ?? null);
+        }}
+        onDrop={() => setDropTarget(null)}
+      >
+        <ReactFlowProvider>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            edgesFocusable={false}
+            fitView
+            minZoom={0.15}
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={16}
+              size={1}
+              color="#d4d4dd"
+            />
+            <Controls />
+            <MiniMap pannable zoomable />
+          </ReactFlow>
+        </ReactFlowProvider>
       </div>
     </div>
   );
