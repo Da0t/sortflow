@@ -150,11 +150,11 @@ export function PipelineTabs() {
         <button
           type="button"
           className="sf-tabs-files"
-          aria-label="Move files by hand"
-          title="Files — drag anything anywhere, no pipeline needed"
+          title="Your folders as a node tree — drag anything anywhere, no pipeline needed"
           onClick={() => useFlowStore.getState().setView("files")}
         >
           <FolderInput size={13} strokeWidth={2} aria-hidden="true" />
+          Files
         </button>
         <button
           type="button"
