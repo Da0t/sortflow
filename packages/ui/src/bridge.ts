@@ -65,6 +65,8 @@ export interface SortflowApi {
   listFolders(path?: string): Promise<FolderEntry[]>;
   /** Folders-first listing (files included) for the Files page. */
   listEntries(path: string): Promise<FsEntry[]>;
+  /** macOS folder-permission health check for Desktop/Documents/Downloads. */
+  checkAccess(): Promise<Array<{ label: string; path: string; ok: boolean }>>;
   /** Journaled manual move of a file or folder into destDir. */
   moveEntry(from: string, destDir: string): Promise<{ error: string | null }>;
   listPipelines(): Promise<PipelineLibrarySummary>;
@@ -314,6 +316,13 @@ function createMockApi(): SortflowApi {
     },
     async moveEntry(_from: string, _destDir: string) {
       return { error: null };
+    },
+    async checkAccess() {
+      return [
+        { label: "Desktop", path: "/Users/demo/Desktop", ok: true },
+        { label: "Documents", path: "/Users/demo/Documents", ok: true },
+        { label: "Downloads", path: "/Users/demo/Downloads", ok: true },
+      ];
     },
     async listPipelines() {
       return summary();

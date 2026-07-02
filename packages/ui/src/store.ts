@@ -44,6 +44,10 @@ interface FlowState {
   /** Which main view is showing: the pipeline canvas or the Files mover. */
   view: "canvas" | "files";
   setView(view: "canvas" | "files"): void;
+  /** True when the canvas differs from the last applied pipeline — the
+   * running engine does NOT match what's on screen until Save & Apply. */
+  dirty: boolean;
+  setDirty(dirty: boolean): void;
   setSelected(id: string | null): void;
   onNodesChange(changes: NodeChange<FlowNode>[]): void;
   onEdgesChange(changes: EdgeChange[]): void;
@@ -75,6 +79,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   bumpRefresh: () => set({ refreshTick: get().refreshTick + 1 }),
   view: "canvas",
   setView: (view) => set({ view }),
+  dirty: false,
+  setDirty: (dirty) => set({ dirty }),
   setSelected: (id) => set({ selectedId: id }),
   onNodesChange: (changes) =>
     set({ nodes: applyNodeChanges(changes, get().nodes) }),
@@ -82,6 +88,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     set({ edges: applyEdgeChanges(changes, get().edges) }),
   onConnect: (c) =>
     set({
+      dirty: true,
       edges: [
         ...get().edges,
         {
@@ -94,6 +101,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     }),
   addNode: (kind, overrides) =>
     set({
+      dirty: true,
       nodes: [
         ...get().nodes,
         {
@@ -114,6 +122,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     }),
   updateConfig: (id, config) =>
     set({
+      dirty: true,
       nodes: get().nodes.map((n) =>
         n.id === id ? { ...n, data: { ...n.data, config } } : n,
       ),
@@ -142,6 +151,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   },
   loadPipeline: (p) =>
     set({
+      dirty: false,
       nodes: p.nodes.map((n) => ({
         id: n.id,
         type: n.kind,
@@ -158,13 +168,16 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     }),
   removeNode: (id) =>
     set({
+      dirty: true,
       nodes: get().nodes.filter((n) => n.id !== id),
       edges: get().edges.filter((e) => e.source !== id && e.target !== id),
       selectedId: get().selectedId === id ? null : get().selectedId,
     }),
-  removeEdge: (id) => set({ edges: get().edges.filter((e) => e.id !== id) }),
+  removeEdge: (id) =>
+    set({ dirty: true, edges: get().edges.filter((e) => e.id !== id) }),
   replaceEdge: (id, connection) =>
     set({
+      dirty: true,
       edges: get().edges.map((e) =>
         e.id === id
           ? {

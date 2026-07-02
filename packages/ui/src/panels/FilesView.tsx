@@ -86,7 +86,7 @@ function FileBrowser({
     setDropTarget(destDir);
   };
 
-  const renderEntries = (entries: FsEntry[], depth: number): ReactElement[] =>
+  const renderEntries = (entries: FsEntry[]): ReactElement[] =>
     entries.map((entry) => {
       const isOpen = entry.isDirectory && expanded.has(entry.path);
       const kids = entriesByPath[entry.path];
@@ -97,7 +97,6 @@ function FileBrowser({
             className={`sf-file-row${
               dropTarget === entry.path ? " sf-file-row-drop" : ""
             }`}
-            style={{ paddingLeft: 6 + depth * 14 }}
             title={entry.path}
             draggable
             onClick={() => toggle(entry)}
@@ -137,26 +136,17 @@ function FileBrowser({
             )}
             <span className="sf-folder-name">{entry.name}</span>
           </button>
-          {isOpen && kids === undefined && (
-            <span
-              className="sf-folder-empty"
-              style={{ paddingLeft: 20 + (depth + 1) * 14 }}
-            >
-              Loading…
-            </span>
+          {isOpen && (
+            <div className="sf-tree-children">
+              {kids === undefined ? (
+                <span className="sf-folder-empty">Loading…</span>
+              ) : kids.length === 0 ? (
+                <span className="sf-folder-empty">Empty folder</span>
+              ) : (
+                renderEntries(kids)
+              )}
+            </div>
           )}
-          {isOpen && kids !== undefined && kids.length === 0 && (
-            <span
-              className="sf-folder-empty"
-              style={{ paddingLeft: 20 + (depth + 1) * 14 }}
-            >
-              Empty folder
-            </span>
-          )}
-          {isOpen &&
-            kids !== undefined &&
-            kids.length > 0 &&
-            renderEntries(kids, depth + 1)}
         </div>
       );
     });
@@ -197,7 +187,7 @@ function FileBrowser({
         ) : rootEntries.length === 0 ? (
           <span className="sf-folder-empty">Empty folder</span>
         ) : (
-          renderEntries(rootEntries, 0)
+          renderEntries(rootEntries)
         )}
       </div>
     </div>

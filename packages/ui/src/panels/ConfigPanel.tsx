@@ -59,14 +59,20 @@ const FILTER_PRESETS: Array<{ label: string; extensions: string[] }> = [
 
 function loadRecents(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]") as string[];
+    return JSON.parse(
+      window.localStorage.getItem(RECENTS_KEY) ?? "[]",
+    ) as string[];
   } catch {
     return [];
   }
 }
 
 function saveRecents(recents: string[]): void {
-  localStorage.setItem(RECENTS_KEY, JSON.stringify(recents));
+  try {
+    window.localStorage.setItem(RECENTS_KEY, JSON.stringify(recents));
+  } catch {
+    // Storage unavailable — recents just don't persist.
+  }
 }
 
 function TextField({
@@ -141,6 +147,7 @@ function DestinationChips({ onSelect }: { onSelect: (path: string) => void }) {
 }
 
 export function ConfigPanel() {
+  const dirty = useFlowStore((s) => s.dirty);
   const selectedId = useFlowStore((s) => s.selectedId);
   const node = useFlowStore((s) => s.nodes.find((n) => n.id === s.selectedId));
   const updateConfig = useFlowStore((s) => s.updateConfig);
@@ -184,6 +191,7 @@ export function ConfigPanel() {
       if (ok) {
         // The engine restart re-points pending proposals — refresh the tray.
         useFlowStore.getState().bumpRefresh();
+        useFlowStore.getState().setDirty(false);
         // Collect all move-node destinations and merge into MRU.
         const destinations = toPipeline()
           .nodes.filter((n) => n.kind === "move")
@@ -502,10 +510,20 @@ export function ConfigPanel() {
           )}
         </div>
       )}
-      <button type="button" className="sf-save" onClick={() => void save()}>
+      {dirty && (
+        <output className="sf-dirty-hint">
+          <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+          Unsaved changes — the running pipeline does not match this canvas yet.
+        </output>
+      )}
+      <button
+        type="button"
+        className={`sf-save${dirty ? " sf-save-dirty" : ""}`}
+        onClick={() => void save()}
+      >
         Save &amp; Apply
       </button>
-      {saved && problems.length === 0 && (
+      {saved && problems.length === 0 && !dirty && (
         <p className="sf-saved">Pipeline applied ✓</p>
       )}
       {warnings.length > 0 && (

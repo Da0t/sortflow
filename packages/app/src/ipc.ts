@@ -1,4 +1,5 @@
-import { readdir, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -269,6 +270,26 @@ export function registerIpc(
     } catch {
       return false;
     }
+  });
+
+  // Health check for macOS folder permissions: reading a protected folder
+  // for the first time also triggers the system consent prompt, so running
+  // this is itself the fix path for a never-asked state.
+  ipcMain.handle("fs:checkAccess", async () => {
+    const home = os.homedir();
+    const targets = ["Desktop", "Documents", "Downloads"];
+    return Promise.all(
+      targets.map(async (label) => {
+        const path = join(home, label);
+        try {
+          await readdir(path);
+          await access(path, constants.W_OK);
+          return { label, path, ok: true };
+        } catch {
+          return { label, path, ok: false };
+        }
+      }),
+    );
   });
 
   ipcMain.handle("fs:listEntries", async (_evt, path: string) => {

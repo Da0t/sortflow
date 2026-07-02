@@ -28,6 +28,8 @@ export function GenerateSection() {
       );
       if (result.pipeline) {
         useFlowStore.getState().loadPipeline(result.pipeline);
+        // The draft is on the canvas but NOT running yet.
+        useFlowStore.getState().setDirty(true);
       } else {
         setError(result.error ?? "Could not draft a pipeline");
       }

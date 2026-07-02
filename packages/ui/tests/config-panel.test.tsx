@@ -69,6 +69,23 @@ describe("ConfigPanel", () => {
     expect(cfg.instructions).toBe("memes are funny images");
   });
 
+  it("shows the unsaved-changes nudge until Save & Apply succeeds", async () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    useFlowStore.getState().setDirty(true);
+    render(<ConfigPanel />);
+    expect(screen.getByText(/unsaved changes/i)).toBeTruthy();
+    vi.spyOn(api, "setPipeline").mockResolvedValue({
+      problems: [],
+      warnings: [],
+    });
+    fireEvent.click(screen.getByText(/save & apply/i));
+    expect(await screen.findByText(/pipeline applied/i)).toBeTruthy();
+    expect(screen.queryByText(/unsaved changes/i)).toBeNull();
+    expect(useFlowStore.getState().dirty).toBe(false);
+    vi.restoreAllMocks();
+  });
+
   it("Preview shows would-move counts without applying", async () => {
     useFlowStore.getState().loadPipeline(demo);
     useFlowStore.getState().setSelected("m1");

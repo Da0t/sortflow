@@ -152,6 +152,8 @@ function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
     try {
       const result = await api.autoSetup(scanDirs, destBase || undefined);
       useFlowStore.getState().loadPipeline(result.pipeline);
+      // The draft is on the canvas but NOT running yet.
+      useFlowStore.getState().setDirty(true);
       // Count rules = number of filter-move pairs (filter nodes starting with auto-f-)
       const ruleCount = result.pipeline.nodes.filter((n) =>
         n.id.startsWith("auto-f-"),

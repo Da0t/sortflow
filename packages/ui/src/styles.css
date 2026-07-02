@@ -255,6 +255,64 @@ body {
   background: var(--sf-primary-soft);
 }
 
+/* Nested tree level: indented with a guide line, like a real directory tree. */
+.sf-tree-children {
+  margin-left: 13px;
+  padding-left: 6px;
+  border-left: 1px solid var(--sf-border);
+}
+
+/* ── Unsaved-changes nudge ────────────────────────────────────── */
+.sf-dirty-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #b45309;
+}
+
+.sf-save-dirty {
+  animation: sf-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sf-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+  }
+}
+
+/* ── macOS permissions banner ─────────────────────────────────── */
+.sf-perms-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: #b45309;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+}
+
+.sf-perms-banner button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  border: 1px solid #fde68a;
+  border-radius: var(--sf-radius-sm);
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .sf-tabs-problems {
   padding: 4px 12px 8px;
   font-size: 12px;

@@ -53,6 +53,21 @@ describe("store: removeEdge", () => {
   });
 });
 
+describe("store: dirty tracking", () => {
+  it("edits mark the canvas dirty; loading a pipeline resets it", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    expect(useFlowStore.getState().dirty).toBe(false);
+    useFlowStore.getState().addNode("move");
+    expect(useFlowStore.getState().dirty).toBe(true);
+    useFlowStore.getState().loadPipeline(demo);
+    expect(useFlowStore.getState().dirty).toBe(false);
+    useFlowStore
+      .getState()
+      .updateConfig("m1", { destination: "~/Elsewhere", auto: false });
+    expect(useFlowStore.getState().dirty).toBe(true);
+  });
+});
+
 describe("store: replaceEdge", () => {
   it("rewires source/target/sourceHandle while keeping the same id", () => {
     useFlowStore.getState().loadPipeline(demo);

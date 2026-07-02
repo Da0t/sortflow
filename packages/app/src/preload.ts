@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld("sortflow", {
   isDirectory: (path: string) => ipcRenderer.invoke("fs:isDirectory", path),
   listFolders: (path?: string) => ipcRenderer.invoke("fs:listFolders", path),
   listEntries: (path: string) => ipcRenderer.invoke("fs:listEntries", path),
+  checkAccess: () => ipcRenderer.invoke("fs:checkAccess"),
   moveEntry: (from: string, destDir: string) =>
     ipcRenderer.invoke("files:move", from, destDir),
   listPipelines: () => ipcRenderer.invoke("pipelines:list"),

@@ -35,8 +35,11 @@ export function AutoSetupBanner({
           <>
             Scanned {scan.total} files &mdash; drafted {ruleCount} rule
             {ruleCount !== 1 ? "s" : ""}
-            {bucketSummary ? `: ${bucketSummary}` : ""}. Review the pipeline,
-            adjust anything, then Save &amp; Apply.
+            {bucketSummary ? `: ${bucketSummary}` : ""}.{" "}
+            <strong>
+              This is a draft — nothing runs until you press Save &amp; Apply in
+              the right panel.
+            </strong>
           </>
         )}
       </span>

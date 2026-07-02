@@ -19,6 +19,7 @@ import { ConfigPanel } from "./panels/ConfigPanel";
 import { FilesView } from "./panels/FilesView";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { Palette } from "./panels/Palette";
+import { PermissionsBanner } from "./panels/PermissionsBanner";
 import { PipelineTabs } from "./panels/PipelineTabs";
 import { ReviewTray } from "./panels/ReviewTray";
 import { useFlowStore } from "./store";
@@ -80,6 +81,7 @@ function FlowCanvas({
   return (
     <div className="sf-canvas">
       <PipelineTabs />
+      <PermissionsBanner />
       <div className="sf-flow">
         {banner && (
           <AutoSetupBanner
