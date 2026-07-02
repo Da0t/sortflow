@@ -18,6 +18,7 @@ export function DeletableEdge({
   markerStart,
   markerEnd,
   selected,
+  animated,
 }: EdgeProps) {
   const removeEdge = useFlowStore((s) => s.removeEdge);
 
@@ -28,6 +29,7 @@ export function DeletableEdge({
     targetX,
     targetY,
     targetPosition,
+    curvature: 0.35,
   });
 
   return (
@@ -39,6 +41,17 @@ export function DeletableEdge({
         markerStart={markerStart}
         markerEnd={markerEnd}
       />
+      <circle
+        className="sf-edge-dot"
+        r={animated ? 4 : 3}
+        fill="var(--sf-primary)"
+      >
+        <animateMotion
+          dur={animated ? "1.1s" : "3.2s"}
+          repeatCount="indefinite"
+          path={edgePath}
+        />
+      </circle>
       <EdgeLabelRenderer>
         <div
           style={{

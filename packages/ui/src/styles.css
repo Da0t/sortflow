@@ -529,12 +529,13 @@ body {
 }
 
 /* ── Edges ────────────────────────────────────────────────────── */
+/* Solid smooth wires; a small dot travels along each edge to show
+   flow direction (see DeletableEdge). Dashes are reserved for the
+   states where motion carries meaning. */
 .react-flow__edge-path {
-  stroke: #94a3b8;
-  stroke-width: 1.5;
+  stroke: #b1b7c9;
+  stroke-width: 2;
   stroke-linecap: round;
-  stroke-dasharray: 6 4;
-  animation: sf-flow 0.7s linear infinite;
   transition: stroke 150ms ease, stroke-width 150ms ease;
 }
 
@@ -553,7 +554,7 @@ body {
 
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: var(--sf-primary);
-  stroke-width: 2;
+  stroke-width: 2.5;
 }
 
 /* Executed-route highlight (store sets animated: true for 3s) */
@@ -562,6 +563,11 @@ body {
   stroke-width: 2.5;
   stroke-dasharray: 6 4;
   animation: sf-flow 0.35s linear infinite;
+}
+
+/* Flow-direction dot travelling along each edge */
+.sf-edge-dot {
+  pointer-events: none;
 }
 
 /* In-progress connection line while dragging from a handle */
@@ -622,6 +628,10 @@ input:focus-visible {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+  /* SMIL ignores CSS animation properties, so hide the dot instead */
+  .sf-edge-dot {
+    display: none;
   }
 }
 
