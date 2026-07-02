@@ -43,6 +43,32 @@ describe("ConfigPanel", () => {
     expect(cfg.destination).toBe("~/Sorted/{category}");
   });
 
+  it("edits AI guidance on a classify node", () => {
+    useFlowStore.getState().loadPipeline({
+      nodes: [
+        {
+          id: "c1",
+          kind: "classify",
+          config: { categories: ["Memes"], model: "llama3.2:3b" },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    });
+    useFlowStore.getState().setSelected("c1");
+    render(<ConfigPanel />);
+    const field = screen.getByLabelText(
+      /what goes where/i,
+    ) as HTMLTextAreaElement;
+    fireEvent.change(field, {
+      target: { value: "memes are funny images" },
+    });
+    const cfg = useFlowStore.getState().toPipeline().nodes[0].config as {
+      instructions?: string;
+    };
+    expect(cfg.instructions).toBe("memes are funny images");
+  });
+
   it("Preview shows would-move counts without applying", async () => {
     useFlowStore.getState().loadPipeline(demo);
     useFlowStore.getState().setSelected("m1");

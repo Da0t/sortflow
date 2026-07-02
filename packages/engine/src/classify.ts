@@ -60,6 +60,7 @@ export class OllamaClassifier implements Classifier {
       const prompt = [
         "Classify this file into exactly one category.",
         `Categories: ${cfg.categories.join(", ")}`,
+        cfg.instructions ? `Guidance: ${cfg.instructions}` : "",
         `Filename: ${file.name}`,
         snippet ? `Content (first 1KB):\n${snippet}` : "",
         'Reply with JSON: {"category": "<one of the categories, or unsure>"}',

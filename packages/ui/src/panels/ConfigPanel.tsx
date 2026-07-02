@@ -349,6 +349,26 @@ export function ConfigPanel() {
                 value={c.model}
                 onChange={(v) => set({ ...c, model: v })}
               />
+              <label htmlFor="sf-field-ai-guidance" className="sf-field">
+                What goes where (optional)
+                <textarea
+                  id="sf-field-ai-guidance"
+                  className="sf-generate-input"
+                  rows={3}
+                  placeholder='e.g. "receipts are purchase screenshots; school files mention course codes like CSE 101"'
+                  value={c.instructions ?? ""}
+                  onChange={(e) =>
+                    set({ ...c, instructions: e.target.value || undefined })
+                  }
+                />
+              </label>
+              <p
+                className="sf-hint-muted"
+                style={{ fontSize: 12, color: "var(--sf-text-muted)" }}
+              >
+                Sent to the AI with every file so it knows how you sort. It sees
+                filenames (plus text-file contents), not image pixels.
+              </p>
             </>
           );
         })()}

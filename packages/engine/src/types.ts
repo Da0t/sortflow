@@ -19,6 +19,9 @@ export interface FilterConfig {
 export interface ClassifyConfig {
   categories: string[]; // output handles; 'unsure' is implicit
   model: string; // e.g. 'llama3.2:3b'
+  /** Free-text guidance included in the classification prompt, e.g.
+   * "receipts are purchase screenshots; school files mention course codes". */
+  instructions?: string;
 }
 
 export interface MoveConfig {

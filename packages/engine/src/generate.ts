@@ -90,7 +90,11 @@ export function coerceSpec(raw: unknown): GeneratedSpec {
  * category handles all feed one move node (its destination usually contains
  * {category}).
  */
-export function specToPipeline(spec: GeneratedSpec): Pipeline {
+export function specToPipeline(
+  spec: GeneratedSpec,
+  /** Original user request — becomes the classify node's guidance. */
+  description?: string,
+): Pipeline {
   const nodes: Pipeline["nodes"] = [
     {
       id: "gen-w",
@@ -151,7 +155,11 @@ export function specToPipeline(spec: GeneratedSpec): Pipeline {
     nodes.push({
       id: "gen-c",
       kind: "classify",
-      config: { categories: spec.classify.categories, model: "llama3.2:3b" },
+      config: {
+        categories: spec.classify.categories,
+        model: "llama3.2:3b",
+        ...(description ? { instructions: description } : {}),
+      },
       position: { x: 340, y },
     });
     nodes.push({
@@ -224,7 +232,7 @@ export class OllamaGenerator {
       const text = await this.request(prompt, model);
       try {
         const spec = coerceSpec(JSON.parse(text));
-        const pipeline = specToPipeline(spec);
+        const pipeline = specToPipeline(spec, description);
         const problems = validatePipeline(pipeline);
         if (problems.length > 0) throw new Error(problems.join("; "));
         return pipeline;

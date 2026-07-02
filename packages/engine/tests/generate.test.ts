@@ -106,6 +106,20 @@ describe("specToPipeline", () => {
     ).toBeGreaterThanOrEqual(160);
   });
 
+  it("passes the user's description into the classify node as guidance", () => {
+    const pipeline = specToPipeline(
+      coerceSpec({
+        rules: [],
+        classify: { categories: ["Memes"], destination: "~/D/{category}" },
+      }),
+      "memes are funny images",
+    );
+    const classify = pipeline.nodes.find((n) => n.kind === "classify");
+    expect((classify?.config as { instructions?: string }).instructions).toBe(
+      "memes are funny images",
+    );
+  });
+
   it("wires every classify category into one move node", () => {
     const pipeline = specToPipeline(
       coerceSpec({

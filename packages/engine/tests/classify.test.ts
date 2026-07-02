@@ -55,6 +55,31 @@ describe("OllamaClassifier", () => {
     expect(body.options.temperature).toBe(0);
   });
 
+  it("includes free-text guidance in the prompt when configured", async () => {
+    const fetchFn = ollamaOk("Receipts");
+    const c = new OllamaClassifier("http://127.0.0.1:11434", fetchFn);
+    await c.classify(await tempFile("scan.pdf", ""), {
+      ...cfg,
+      instructions: "receipts are purchase screenshots",
+    });
+    const body = JSON.parse(
+      (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0][1].body as string,
+    );
+    expect(body.messages[0].content).toContain(
+      "Guidance: receipts are purchase screenshots",
+    );
+  });
+
+  it("omits the guidance line when not configured", async () => {
+    const fetchFn = ollamaOk("Receipts");
+    const c = new OllamaClassifier("http://127.0.0.1:11434", fetchFn);
+    await c.classify(await tempFile("scan.pdf", ""), cfg);
+    const body = JSON.parse(
+      (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0][1].body as string,
+    );
+    expect(body.messages[0].content).not.toContain("Guidance:");
+  });
+
   it("omits snippets for non-text files", async () => {
     const fetchFn = ollamaOk("School");
     const c = new OllamaClassifier("http://127.0.0.1:11434", fetchFn);
