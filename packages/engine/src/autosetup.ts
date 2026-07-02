@@ -14,7 +14,20 @@ export interface FolderScan {
   buckets: BucketStat[];
 }
 
-/** Canonical bucket definitions — order matters (first match wins). */
+/**
+ * Canonical bucket definitions — order matters (first match wins).
+ *
+ * The taxonomy follows file-organization research and proven-tool consensus:
+ * a small flat set of type-based categories (tools like macOS Stacks and
+ * Hazel converge on 5-8; fine-grained splits become "failed folders"),
+ * destinations that respect macOS default-folder semantics (~/Documents for
+ * documents, subfolders of ~/Pictures — never its root — for images,
+ * ~/Movies for video, ~/Music for audio), disposable byproducts (installers,
+ * archives) quarantined under ~/Downloads for easy purging, and date
+ * grouping only for high-volume chronological categories, zero-padded so
+ * lexicographic order equals chronological order. Depth never exceeds
+ * SystemFolder/Category/DateFolder.
+ */
 const BUCKETS: ReadonlyArray<{
   key: string;
   label: string;
@@ -22,39 +35,16 @@ const BUCKETS: ReadonlyArray<{
   /** When set, file name must match this regex (case-insensitive) too. */
   namePattern?: string;
   destination: string;
+  /** Date-token subfolder, also applied to "Sort into" base variants. */
+  dateSuffix?: string;
 }> = [
   {
     key: "screenshots",
     label: "Screenshots",
     extensions: [".png", ".jpg", ".jpeg", ".heic"],
-    namePattern: "^screen ?shot",
+    namePattern: "^(screen ?shot|cleanshot)",
     destination: "~/Pictures/Screenshots",
-  },
-  {
-    key: "images",
-    label: "Images",
-    extensions: [".png", ".jpg", ".jpeg", ".gif", ".heic", ".webp", ".svg"],
-    destination: "~/Pictures/Sorted",
-  },
-  {
-    key: "documents",
-    label: "Documents",
-    extensions: [
-      ".pdf",
-      ".doc",
-      ".docx",
-      ".txt",
-      ".md",
-      ".rtf",
-      ".csv",
-      ".xlsx",
-      ".xls",
-      ".pptx",
-      ".ppt",
-      ".key",
-      ".pages",
-    ],
-    destination: "~/Documents/Sorted",
+    dateSuffix: "/{fileYYYY}-{fileMM}",
   },
   {
     key: "installers",
@@ -65,23 +55,72 @@ const BUCKETS: ReadonlyArray<{
   {
     key: "archives",
     label: "Archives",
-    extensions: [".zip", ".tar", ".gz", ".tgz", ".rar", ".7z"],
+    extensions: [".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".rar", ".7z"],
     destination: "~/Downloads/Archives",
   },
   {
-    key: "media",
-    label: "Media",
+    key: "images",
+    label: "Images",
+    extensions: [
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".gif",
+      ".heic",
+      ".webp",
+      ".bmp",
+      ".tiff",
+      ".tif",
+      ".svg",
+      ".avif",
+    ],
+    destination: "~/Pictures/Sorted",
+    dateSuffix: "/{fileYYYY}",
+  },
+  {
+    key: "documents",
+    label: "Documents",
+    extensions: [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx",
+      ".ppt",
+      ".pptx",
+      ".key",
+      ".pages",
+      ".numbers",
+      ".txt",
+      ".rtf",
+      ".md",
+      ".csv",
+      ".odt",
+      ".epub",
+    ],
+    destination: "~/Documents/Sorted",
+  },
+  {
+    key: "video",
+    label: "Video",
     extensions: [
       ".mp4",
       ".mov",
       ".mkv",
       ".avi",
-      ".mp3",
-      ".wav",
-      ".m4a",
-      ".flac",
+      ".webm",
+      ".m4v",
+      ".wmv",
+      ".flv",
     ],
     destination: "~/Movies/Sorted",
+    dateSuffix: "/{fileYYYY}",
+  },
+  {
+    key: "audio",
+    label: "Audio",
+    extensions: [".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg", ".aiff"],
+    destination: "~/Music/Sorted",
   },
 ];
 
@@ -235,7 +274,10 @@ export function suggestPipeline(
     const rawDestination = opts.destBase
       ? `${opts.destBase.replace(/\/+$/, "")}/${def.label}`
       : def.destination;
-    const destination = rawDestination.replace(/^~/, home);
+    const destination = `${rawDestination}${def.dateSuffix ?? ""}`.replace(
+      /^~/,
+      home,
+    );
     nodes.push({
       id: mId,
       kind: "move" as const,

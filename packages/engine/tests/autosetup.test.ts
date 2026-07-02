@@ -99,14 +99,14 @@ describe("scanFolder", () => {
     expect(archives?.count).toBe(2);
   });
 
-  it("counts media files correctly", async () => {
+  it("counts video and audio files separately", async () => {
     const dir = await tmpDir();
     dirs.push(dir);
     await touch(dir, "video.mp4");
     await touch(dir, "song.mp3");
     const result = await scanFolder(dir);
-    const media = result.buckets.find((b) => b.key === "media");
-    expect(media?.count).toBe(2);
+    expect(result.buckets.find((b) => b.key === "video")?.count).toBe(1);
+    expect(result.buckets.find((b) => b.key === "audio")?.count).toBe(1);
   });
 
   it("stops after maxFiles", async () => {
@@ -212,8 +212,10 @@ describe("suggestPipeline", () => {
     expect(mImg?.position).toEqual({ x: 660, y: 60 });
     // Second row starts below the first row's estimated height — never a
     // fixed 150px, which made tall filter nodes overlap.
-    expect(fDoc?.position).toEqual({ x: 340, y: 220 });
-    expect(mDoc?.position).toEqual({ x: 660, y: 220 });
+    // The images summary wraps to two lines with the fuller extension set,
+    // so its row is 174px tall (see estimateRowHeight).
+    expect(fDoc?.position).toEqual({ x: 340, y: 234 });
+    expect(mDoc?.position).toEqual({ x: 660, y: 234 });
   });
 
   it("gives long extension lists extra vertical room", () => {
@@ -221,12 +223,12 @@ describe("suggestPipeline", () => {
       total: 30,
       buckets: [
         { key: "documents", label: "Documents", count: 10 }, // 13 extensions
-        { key: "media", label: "Media", count: 10 },
+        { key: "video", label: "Video", count: 10 },
       ],
     };
     const pipeline = suggestPipeline("/watch", scan, { minCount: 1 });
     const fDoc = pipeline.nodes.find((n) => n.id === "auto-f-documents");
-    const fMedia = pipeline.nodes.find((n) => n.id === "auto-f-media");
+    const fMedia = pipeline.nodes.find((n) => n.id === "auto-f-video");
     const gap = (fMedia?.position.y ?? 0) - (fDoc?.position.y ?? 0);
     // The documents summary wraps to two lines, so its row is taller than
     // the 160px minimum.
@@ -244,7 +246,7 @@ describe("suggestPipeline", () => {
     });
     const move = pipeline.nodes.find((n) => n.id === "auto-m-images");
     expect((move?.config as { destination: string }).destination).toBe(
-      "/home/testuser/Pictures/Sorted",
+      "/home/testuser/Pictures/Sorted/{fileYYYY}",
     );
   });
 
@@ -263,8 +265,9 @@ describe("suggestPipeline", () => {
     });
     const shots = pipeline.nodes.find((n) => n.id === "auto-m-screenshots");
     const docs = pipeline.nodes.find((n) => n.id === "auto-m-documents");
+    // Date grouping applies to the Sort-into variant too.
     expect((shots?.config as { destination: string }).destination).toBe(
-      "/home/testuser/Desktop/Screenshots",
+      "/home/testuser/Desktop/Screenshots/{fileYYYY}-{fileMM}",
     );
     expect((docs?.config as { destination: string }).destination).toBe(
       "/home/testuser/Desktop/Documents",
@@ -354,7 +357,7 @@ describe("suggestPipeline", () => {
       regex: boolean;
       extensions: string[];
     };
-    expect(cfg.namePattern).toBe("^screen ?shot");
+    expect(cfg.namePattern).toBe("^(screen ?shot|cleanshot)");
     expect(cfg.regex).toBe(true);
     expect(cfg.extensions).toEqual([".png", ".jpg", ".jpeg", ".heic"]);
   });

@@ -210,6 +210,7 @@ export function registerIpc(
   );
   ipcMain.handle("journal:list", () => current.listJournal());
   ipcMain.handle("journal:undo", (_evt, id: string) => current.undo(id));
+  ipcMain.handle("journal:undoAll", () => current.undoAllDone());
   ipcMain.handle("streak:get", (_evt, moveNodeId: string) =>
     current.approvalStreak(moveNodeId),
   );

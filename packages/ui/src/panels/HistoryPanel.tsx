@@ -30,6 +30,8 @@ export function HistoryPanel() {
     return api.onExecuted((_p: Proposal) => void refresh());
   }, [refresh]);
 
+  const doneCount = entries.filter((e) => e.status === "done").length;
+
   return (
     <div className="sf-history">
       <h3>
@@ -37,6 +39,27 @@ export function HistoryPanel() {
         History
       </h3>
       {error && <p className="sf-error">{error}</p>}
+      {doneCount > 1 && (
+        <button
+          type="button"
+          className="sf-btn-neutral sf-btn-undo-all"
+          onClick={() => {
+            if (
+              !window.confirm(
+                `Undo all ${doneCount} moves? Every file goes back to where it came from.`,
+              )
+            )
+              return;
+            setError(null);
+            api
+              .undoAll()
+              .then(() => refresh())
+              .catch((e: unknown) => setError(message(e)));
+          }}
+        >
+          Undo all ({doneCount})
+        </button>
+      )}
       {entries.length === 0 && <p className="sf-empty">No moves yet.</p>}
       <ul>
         {entries.slice(0, 50).map((e) => (

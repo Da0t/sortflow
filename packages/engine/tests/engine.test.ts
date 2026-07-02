@@ -103,6 +103,30 @@ describe("Engine", () => {
     expect(existsSync(join(inbox, "note.txt"))).toBe(true);
   }, 15_000);
 
+  it("undoAllDone reverses every completed move", async () => {
+    const { inbox, dest, pipeline, engine } = await setup(false);
+    await engine.start(pipeline);
+    await sleep(300);
+
+    let next = nextProposal(engine);
+    await writeFile(join(inbox, "one.txt"), "1");
+    const p1 = await next;
+    next = nextProposal(engine);
+    await writeFile(join(inbox, "two.txt"), "2");
+    const p2 = await next;
+
+    await engine.approve(p1.id);
+    await engine.approve(p2.id);
+    expect(existsSync(join(dest, "one.txt"))).toBe(true);
+    expect(existsSync(join(dest, "two.txt"))).toBe(true);
+
+    expect(await engine.undoAllDone()).toBe(2);
+    expect(existsSync(join(inbox, "one.txt"))).toBe(true);
+    expect(existsSync(join(inbox, "two.txt"))).toBe(true);
+    // Nothing left to undo.
+    expect(await engine.undoAllDone()).toBe(0);
+  }, 15_000);
+
   it("auto move nodes execute without approval and emit executed", async () => {
     const { inbox, dest, pipeline, engine } = await setup(true);
     await engine.start(pipeline);

@@ -38,6 +38,8 @@ export interface SortflowApi {
   renameProposal(id: string, newName: string): Promise<Proposal>;
   listJournal(): Promise<JournalEntry[]>;
   undo(id: string): Promise<void>;
+  /** Undo every completed move; returns how many were reversed. */
+  undoAll(): Promise<number>;
   approvalStreak(moveNodeId: string): Promise<number>;
   onProposal(cb: (p: Proposal) => void): () => void;
   onExecuted(cb: (p: Proposal) => void): () => void;
@@ -253,6 +255,9 @@ function createMockApi(): SortflowApi {
       return [];
     },
     async undo() {},
+    async undoAll() {
+      return 0;
+    },
     async approvalStreak() {
       return 0;
     },

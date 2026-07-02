@@ -260,6 +260,25 @@ export class Engine extends EventEmitter {
     );
   }
 
+  /** Undo every completed move in the journal, newest first. Moves that can
+   * no longer be reversed (file renamed or deleted by hand) are skipped.
+   * Returns how many were undone. */
+  async undoAllDone(): Promise<number> {
+    const entries = [...(await this.journal.latestById()).values()]
+      .filter((e) => e.status === "done")
+      .sort((a, b) => b.ts - a.ts);
+    let undone = 0;
+    for (const entry of entries) {
+      try {
+        await this.undo(entry.id);
+        undone++;
+      } catch {
+        // Skip and keep going — partial recovery beats none.
+      }
+    }
+    return undone;
+  }
+
   listProposals(): Proposal[] {
     return this.proposalStore.list();
   }

@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("sortflow", {
     ipcRenderer.invoke("proposals:rename", id, newName),
   listJournal: () => ipcRenderer.invoke("journal:list"),
   undo: (id: string) => ipcRenderer.invoke("journal:undo", id),
+  undoAll: () => ipcRenderer.invoke("journal:undoAll"),
   approvalStreak: (moveNodeId: string) =>
     ipcRenderer.invoke("streak:get", moveNodeId),
   onProposal: (cb: (p: unknown) => void) =>
