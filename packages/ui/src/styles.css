@@ -572,3 +572,113 @@ input:focus-visible {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ── Auto Setup palette elements ────────────────────────────────── */
+.sf-autosetup-select {
+  width: 100%;
+  padding: 5px 6px;
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-surface);
+  color: var(--sf-text);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  margin-bottom: 4px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.sf-autosetup-select:focus-visible {
+  border-color: var(--sf-primary);
+  box-shadow: 0 0 0 3px var(--sf-primary-soft);
+}
+
+.sf-autosetup-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+  margin-bottom: 4px;
+}
+
+.sf-autosetup-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.sf-autosetup-btn:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}
+
+.sf-autosetup-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Auto Setup banner ─────────────────────────────────────────── */
+.sf-autosetup-banner {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--sf-primary-soft);
+  color: var(--sf-text);
+  border-radius: var(--sf-radius-sm);
+  border: 1px solid var(--sf-primary);
+  font-size: 13px;
+  box-shadow: var(--sf-shadow);
+}
+
+.sf-autosetup-banner--error {
+  background: var(--sf-danger-soft);
+  border-color: var(--sf-danger);
+  color: var(--sf-danger);
+}
+
+.sf-autosetup-banner-text {
+  flex: 1;
+}
+
+.sf-autosetup-banner-dismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+
+.sf-autosetup-banner-dismiss:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.sf-autosetup-banner-dismiss:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}

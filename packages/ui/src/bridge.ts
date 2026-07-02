@@ -1,4 +1,9 @@
-import type { JournalEntry, Pipeline, Proposal } from "@sortflow/engine";
+import type {
+  FolderScan,
+  JournalEntry,
+  Pipeline,
+  Proposal,
+} from "@sortflow/engine";
 
 export interface SortflowApi {
   getPipeline(): Promise<Pipeline>;
@@ -15,6 +20,7 @@ export interface SortflowApi {
   onNodeStatus(
     cb: (nodeId: string, status: string, message?: string) => void,
   ): () => void;
+  autoSetup(path: string): Promise<{ scan: FolderScan; pipeline: Pipeline }>;
 }
 
 const EMPTY: Pipeline = { nodes: [], edges: [] };
@@ -78,6 +84,96 @@ function createMockApi(): SortflowApi {
     },
     onNodeStatus() {
       return () => {};
+    },
+    async autoSetup(_path: string) {
+      const scan: FolderScan = {
+        total: 160,
+        buckets: [
+          { key: "screenshots", label: "Screenshots", count: 120 },
+          { key: "documents", label: "Documents", count: 40 },
+        ],
+      };
+      const pipeline: Pipeline = {
+        nodes: [
+          {
+            id: "auto-w",
+            kind: "watch",
+            config: { path: "~/Downloads", recursive: false },
+            position: { x: 40, y: 200 },
+          },
+          {
+            id: "auto-f-screenshots",
+            kind: "filter",
+            config: {
+              extensions: [".png", ".jpg", ".jpeg", ".heic"],
+              namePattern: "^screen ?shot",
+              regex: true,
+            },
+            position: { x: 340, y: 60 },
+          },
+          {
+            id: "auto-m-screenshots",
+            kind: "move",
+            config: { destination: "~/Pictures/Screenshots", auto: false },
+            position: { x: 660, y: 60 },
+          },
+          {
+            id: "auto-f-documents",
+            kind: "filter",
+            config: {
+              extensions: [
+                ".pdf",
+                ".doc",
+                ".docx",
+                ".txt",
+                ".md",
+                ".rtf",
+                ".csv",
+                ".xlsx",
+                ".xls",
+                ".pptx",
+                ".ppt",
+                ".key",
+                ".pages",
+              ],
+            },
+            position: { x: 340, y: 210 },
+          },
+          {
+            id: "auto-m-documents",
+            kind: "move",
+            config: { destination: "~/Documents/Sorted", auto: false },
+            position: { x: 660, y: 210 },
+          },
+        ],
+        edges: [
+          {
+            id: "auto-e-0",
+            source: "auto-w",
+            sourceHandle: "out",
+            target: "auto-f-screenshots",
+          },
+          {
+            id: "auto-e-1",
+            source: "auto-f-screenshots",
+            sourceHandle: "match",
+            target: "auto-m-screenshots",
+          },
+          {
+            id: "auto-e-2",
+            source: "auto-f-screenshots",
+            sourceHandle: "else",
+            target: "auto-f-documents",
+          },
+          {
+            id: "auto-e-3",
+            source: "auto-f-documents",
+            sourceHandle: "match",
+            target: "auto-m-documents",
+          },
+        ],
+      };
+      return { scan, pipeline };
     },
   };
 }

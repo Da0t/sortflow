@@ -1,6 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
 import { join } from "node:path";
-import { Engine, type Pipeline, validatePipeline } from "@sortflow/engine";
+import {
+  Engine,
+  type Pipeline,
+  scanFolder,
+  suggestPipeline,
+  validatePipeline,
+} from "@sortflow/engine";
 import { type BrowserWindow, ipcMain } from "electron";
 
 const EMPTY: Pipeline = { nodes: [], edges: [] };
@@ -82,6 +89,15 @@ export function registerIpc(
   ipcMain.handle("streak:get", (_evt, moveNodeId: string) =>
     current.approvalStreak(moveNodeId),
   );
+
+  ipcMain.handle("autosetup:scan", async (_evt, dir: string) => {
+    const expanded = dir.startsWith("~")
+      ? dir.replace(/^~/, os.homedir())
+      : dir;
+    const scan = await scanFolder(expanded);
+    const pipeline = suggestPipeline(expanded, scan);
+    return { scan, pipeline };
+  });
 
   return { pendingCount };
 }

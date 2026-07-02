@@ -6,9 +6,11 @@ import {
   ReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useRef } from "react";
+import type { FolderScan } from "@sortflow/engine";
+import { useRef, useState } from "react";
 import { DeletableEdge } from "./edges/DeletableEdge";
 import { nodeTypes } from "./nodes";
+import { AutoSetupBanner } from "./panels/AutoSetupBanner";
 import { ConfigPanel } from "./panels/ConfigPanel";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { Palette } from "./panels/Palette";
@@ -17,6 +19,12 @@ import { useFlowStore } from "./store";
 import "./styles.css";
 
 const edgeTypes = { default: DeletableEdge };
+
+interface BannerState {
+  scan: FolderScan;
+  ruleCount: number;
+  error?: string;
+}
 
 export default function App() {
   const nodes = useFlowStore((s) => s.nodes);
@@ -28,15 +36,40 @@ export default function App() {
   const removeEdge = useFlowStore((s) => s.removeEdge);
   const replaceEdge = useFlowStore((s) => s.replaceEdge);
 
+  const [banner, setBanner] = useState<BannerState | null>(null);
+
   // Tracks whether a drag-to-reconnect gesture landed on a valid handle.
   // start → false; onReconnect → true + update endpoints; onReconnectEnd → if still false, delete.
   const reconnectSucceeded = useRef(false);
 
+  function handleAutoSetupResult(scan: FolderScan, ruleCount: number) {
+    setBanner({ scan, ruleCount });
+  }
+
+  function handleAutoSetupError(message: string) {
+    setBanner({
+      scan: { total: 0, buckets: [] },
+      ruleCount: 0,
+      error: message,
+    });
+  }
+
   return (
     <div className="sf-shell">
       <div className="sf-app">
-        <Palette />
+        <Palette
+          onAutoSetupResult={handleAutoSetupResult}
+          onAutoSetupError={handleAutoSetupError}
+        />
         <div className="sf-canvas">
+          {banner && (
+            <AutoSetupBanner
+              scan={banner.scan}
+              ruleCount={banner.ruleCount}
+              error={banner.error}
+              onDismiss={() => setBanner(null)}
+            />
+          )}
           <ReactFlow
             nodes={nodes}
             edges={edges}

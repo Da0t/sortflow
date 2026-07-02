@@ -1,5 +1,5 @@
 import type { Pipeline } from "@sortflow/engine";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import App from "../src/App";
 import { useFlowStore } from "../src/store";
@@ -36,7 +36,14 @@ describe("App", () => {
     useFlowStore.getState().loadPipeline(demo);
     render(<App />);
     expect(await screen.findByText("Watch")).toBeTruthy();
-    expect(screen.getByText("~/Downloads")).toBeTruthy();
+    // ~/Downloads appears in both the Auto Setup folder select and the watch node;
+    // verify the watch node body specifically
+    const canvas = screen
+      .getByRole("button", { name: /add watch/i })
+      .closest(".sf-app") as HTMLElement;
+    expect(within(canvas).getAllByText("~/Downloads").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByText("~/Pictures/Screenshots")).toBeTruthy();
     expect(screen.getByRole("button", { name: /add watch/i })).toBeTruthy();
   });

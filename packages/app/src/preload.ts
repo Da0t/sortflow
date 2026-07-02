@@ -27,4 +27,5 @@ contextBridge.exposeInMainWorld("sortflow", {
     subscribe("engine:stuck")(cb as never),
   onNodeStatus: (cb: (...a: unknown[]) => void) =>
     subscribe("engine:nodeStatus")(cb as never),
+  autoSetup: (path: string) => ipcRenderer.invoke("autosetup:scan", path),
 });
