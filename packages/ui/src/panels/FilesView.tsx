@@ -11,7 +11,15 @@ import {
   ReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
-import { ArrowLeft, File, Folder, House, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  File,
+  Folder,
+  FolderPlus,
+  House,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type FsEntry, api } from "../bridge";
 import { readFolderDragPath, setFolderDragData } from "../lib/folderDrop";
@@ -34,7 +42,17 @@ type BubbleData = {
   onHover: (path: string | null) => void;
   onToggle: (path: string) => void;
   onDropInto: (dest: string, e: React.DragEvent) => void;
+  onTrash: (path: string, name: string) => void;
+  onStartCreate: (path: string) => void;
   dropTarget: string | null;
+};
+
+type CreatorData = {
+  parentName: string;
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
 };
 
 type ChipData = {
@@ -46,7 +64,10 @@ type ChipData = {
   dropTarget: string | null;
 };
 
-type AnyNode = Node<BubbleData, "bubble"> | Node<ChipData, "chip">;
+type AnyNode =
+  | Node<BubbleData, "bubble">
+  | Node<ChipData, "chip">
+  | Node<CreatorData, "creator">;
 
 /** A folder as a bubble: name + item count. Hovering fans its contents out
  * as satellite chips; clicking toggles it open as a pinned branch. */
@@ -85,7 +106,56 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
       {data.count !== null && (
         <span className="sf-bubble-count">{data.count}</span>
       )}
+      <span className="sf-bubble-actions">
+        <button
+          type="button"
+          aria-label={`New folder in ${data.name}`}
+          title="New folder inside"
+          onClick={(e) => {
+            e.stopPropagation();
+            data.onStartCreate(data.path);
+          }}
+        >
+          <FolderPlus size={12} strokeWidth={2} aria-hidden="true" />
+        </button>
+        {!data.isRoot && (
+          <button
+            type="button"
+            aria-label={`Move ${data.name} to Trash`}
+            title="Move to the macOS Trash (restorable there)"
+            onClick={(e) => {
+              e.stopPropagation();
+              data.onTrash(data.path, data.name);
+            }}
+          >
+            <Trash2 size={12} strokeWidth={2} aria-hidden="true" />
+          </button>
+        )}
+      </span>
       <Handle type="source" position={Position.Bottom} />
+    </div>
+  );
+}
+
+/** Inline input node for naming a new folder, wired under its parent. */
+function CreatorNode({ data }: NodeProps<Node<CreatorData, "creator">>) {
+  return (
+    <div className="sf-chipnode sf-creator">
+      <Handle type="target" position={Position.Top} />
+      <FolderPlus size={11} strokeWidth={2} aria-hidden="true" />
+      <input
+        className="nodrag"
+        aria-label={`New folder name in ${data.parentName}`}
+        placeholder="New folder name"
+        value={data.value}
+        // biome-ignore lint/a11y/noAutofocus: input appears on explicit user action
+        autoFocus
+        onChange={(e) => data.onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") data.onSubmit();
+          if (e.key === "Escape") data.onCancel();
+        }}
+      />
     </div>
   );
 }
@@ -137,7 +207,7 @@ function ChipNode({ data }: NodeProps<Node<ChipData, "chip">>) {
   );
 }
 
-const nodeTypes = { bubble: BubbleNode, chip: ChipNode };
+const nodeTypes = { bubble: BubbleNode, chip: ChipNode, creator: CreatorNode };
 
 /**
  * The Files page: folders as bubbles on a pannable, zoomable canvas (drag
@@ -155,6 +225,8 @@ export function FilesView() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [creatingIn, setCreatingIn] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (path: string) => {
@@ -229,6 +301,54 @@ export function FilesView() {
     }
   }, [pinned, load]);
 
+  const onTrash = useCallback(
+    async (path: string, name: string) => {
+      if (
+        !window.confirm(
+          `Move "${name}" to the Trash? You can restore it from the Trash.`,
+        )
+      ) {
+        return;
+      }
+      const result = await api.trashEntry(path);
+      setError(result.error);
+      if (!result.error) {
+        setPinned(
+          (prev) =>
+            new Set(
+              [...prev].filter((p) => p !== path && !p.startsWith(`${path}/`)),
+            ),
+        );
+      }
+      refreshAll();
+    },
+    [refreshAll],
+  );
+
+  const onStartCreate = useCallback((path: string) => {
+    setCreatingIn(path);
+    setNewName("");
+  }, []);
+
+  const submitCreate = useCallback(async () => {
+    if (!creatingIn) return;
+    const result = await api.createFolder(creatingIn, newName);
+    setError(result.error);
+    if (!result.error) {
+      setCreatingIn(null);
+      // Pin the parent so the new folder appears as a bubble right away.
+      if (creatingIn !== HOME) {
+        setPinned((prev) => new Set(prev).add(creatingIn));
+      }
+      await load(creatingIn);
+    }
+  }, [creatingIn, newName, load]);
+
+  const cancelCreate = useCallback(() => {
+    setCreatingIn(null);
+    setNewName("");
+  }, []);
+
   const onDropInto = useCallback(
     async (dest: string, e: React.DragEvent) => {
       const src = readFolderDragPath(e.dataTransfer);
@@ -281,6 +401,8 @@ export function FilesView() {
           onHover,
           onToggle,
           onDropInto,
+          onTrash,
+          onStartCreate,
           dropTarget,
         },
       });
@@ -336,17 +458,55 @@ export function FilesView() {
       });
     }
 
+    // Inline naming input for a folder being created.
+    const creatorParent = creatingIn
+      ? nodes.find((n) => n.id === creatingIn)
+      : undefined;
+    if (creatingIn && creatorParent) {
+      nodes.push({
+        id: "creator",
+        type: "creator",
+        position: {
+          x: creatorParent.position.x + BUBBLE_W / 2 - CHIP_W / 2,
+          y: creatorParent.position.y - CHIP_FAN_Y,
+        },
+        draggable: false,
+        data: {
+          parentName:
+            creatingIn === HOME
+              ? "Home"
+              : (creatorParent.data as BubbleData).name,
+          value: newName,
+          onChange: setNewName,
+          onSubmit: submitCreate,
+          onCancel: cancelCreate,
+        },
+      });
+      edges.push({
+        id: "creator-edge",
+        source: creatingIn,
+        target: "creator",
+        style: { strokeDasharray: "4 3" },
+      });
+    }
+
     return { nodes, edges };
   }, [
     entriesByPath,
     pinned,
     hovered,
     dropTarget,
+    creatingIn,
+    newName,
     folderChildren,
     onHover,
     onToggle,
     onPin,
     onDropInto,
+    onTrash,
+    onStartCreate,
+    submitCreate,
+    cancelCreate,
   ]);
 
   return (

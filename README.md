@@ -287,9 +287,11 @@ machines you can switch a Classify node's model to `llama3.2:1b`.
 unsigned. Right-click → Open the first time, or build it yourself from
 source.
 
-**Will it ever delete or overwrite my files?** No. Moves are journaled first,
-name collisions get a ` (1)` suffix, and rejection/undo never touch file
-contents.
+**Will it ever delete or overwrite my files?** Pipelines never delete or
+overwrite anything: moves are journaled first, name collisions get a ` (1)`
+suffix, and rejection/undo never touch file contents. The only deletion in
+the app is the Files page's explicit Trash button, which moves items to the
+macOS Trash — restorable there, never permanent.
 
 ## Contributing
 

@@ -96,6 +96,60 @@ describe("FilesView (bubbles)", () => {
     ).toBeTruthy();
   });
 
+  it("creates a new folder via the bubble's + action", async () => {
+    mockListing();
+    const create = vi
+      .spyOn(api, "createFolder")
+      .mockResolvedValue({ error: null });
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    fireEvent.click(
+      container.querySelector(
+        '[aria-label="New folder in Documents"]',
+      ) as HTMLElement,
+    );
+    const input = container.querySelector(
+      'input[placeholder="New folder name"]',
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Receipts" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => {
+      expect(create).toHaveBeenCalledWith("/u/Documents", "Receipts");
+    });
+  });
+
+  it("moves a directory to the Trash after confirmation", async () => {
+    mockListing();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const trash = vi
+      .spyOn(api, "trashEntry")
+      .mockResolvedValue({ error: null });
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    fireEvent.click(
+      container.querySelector(
+        '[aria-label="Move Documents to Trash"]',
+      ) as HTMLElement,
+    );
+    await waitFor(() => {
+      expect(trash).toHaveBeenCalledWith("/u/Documents");
+    });
+  });
+
+  it("does not trash when the confirmation is declined", async () => {
+    mockListing();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const trash = vi.spyOn(api, "trashEntry");
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    fireEvent.click(
+      container.querySelector(
+        '[aria-label="Move Documents to Trash"]',
+      ) as HTMLElement,
+    );
+    expect(trash).not.toHaveBeenCalled();
+  });
+
   it("the back button returns to the canvas view", async () => {
     mockListing();
     useFlowStore.getState().setView("files");

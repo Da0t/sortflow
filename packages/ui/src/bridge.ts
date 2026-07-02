@@ -69,6 +69,10 @@ export interface SortflowApi {
   checkAccess(): Promise<Array<{ label: string; path: string; ok: boolean }>>;
   /** Journaled manual move of a file or folder into destDir. */
   moveEntry(from: string, destDir: string): Promise<{ error: string | null }>;
+  /** Create a subfolder inside `parent`. */
+  createFolder(parent: string, name: string): Promise<{ error: string | null }>;
+  /** Move a file or folder to the macOS Trash (recoverable, not permanent). */
+  trashEntry(path: string): Promise<{ error: string | null }>;
   listPipelines(): Promise<PipelineLibrarySummary>;
   /** Switch the editor to pipeline `id`; `draft` stashes the current canvas. */
   switchPipeline(
@@ -315,6 +319,12 @@ function createMockApi(): SortflowApi {
       ];
     },
     async moveEntry(_from: string, _destDir: string) {
+      return { error: null };
+    },
+    async createFolder(_parent: string, _name: string) {
+      return { error: null };
+    },
+    async trashEntry(_path: string) {
       return { error: null };
     },
     async checkAccess() {

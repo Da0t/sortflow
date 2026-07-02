@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, readdir, stat } from "node:fs/promises";
+import { access, mkdir, readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -15,7 +15,7 @@ import {
   suggestPipeline,
   validatePipeline,
 } from "@sortflow/engine";
-import { type BrowserWindow, dialog, ipcMain } from "electron";
+import { type BrowserWindow, dialog, ipcMain, shell } from "electron";
 
 export function registerIpc(
   engine: Engine,
@@ -290,6 +290,45 @@ export function registerIpc(
         }
       }),
     );
+  });
+
+  ipcMain.handle(
+    "fs:createFolder",
+    async (_evt, parent: string, name: string) => {
+      const clean = name.trim();
+      if (!clean || /[/\\:]/.test(clean) || clean.startsWith(".")) {
+        return {
+          error:
+            "Folder names can't be empty, start with a dot, or contain / \\ :",
+        };
+      }
+      try {
+        await mkdir(join(parent.replace(/^~/, os.homedir()), clean));
+        return { error: null };
+      } catch (err) {
+        return {
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  // Deleting always means the macOS Trash — recoverable, never permanent.
+  ipcMain.handle("fs:trash", async (_evt, path: string) => {
+    const home = os.homedir();
+    const expanded = path.replace(/^~/, home);
+    if (expanded === home || path === "~") {
+      return { error: "Refusing to trash the home folder" };
+    }
+    if (!expanded.startsWith(`${home}/`)) {
+      return { error: "Only items inside your home folder can be trashed" };
+    }
+    try {
+      await shell.trashItem(expanded);
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
   });
 
   ipcMain.handle("fs:listEntries", async (_evt, path: string) => {

@@ -30,7 +30,7 @@
 | `proposals:list` / `approve` / `reject` / `restoreRejected` / `rename`, `journal:list` / `journal:undo`, `streak:get` | Review queue (including the bulk restore of rejected proposals), undo journal, and per-move-node approval streak, delegated to the current engine. |
 | `autosetup:scan` | `scanFolder` + `suggestPipeline` for a `~`-expanded directory; returns `{ scan, pipeline }`. |
 | `dialog:pickFolder` | Native directory picker (`openDirectory`, `createDirectory`); resolves `null` on cancel. |
-| `fs:isDirectory` / `fs:listFolders` | Path check and shallow, hidden-filtered folder listing for the UI's folder tree. |
+| `fs:isDirectory` / `fs:listFolders` / `fs:listEntries` / `fs:checkAccess` / `fs:createFolder` / `fs:trash`, `files:move` | Path checks and listings for the folder tree and Files page, the macOS permissions health check, folder creation, Trash (via `shell.trashItem` — recoverable, home-scoped), and journaled manual moves. |
 
 Engine events `proposal`, `executed`, `stuck`, and `nodeStatus` are pushed to the renderer as `engine:*` channels; the first three also refresh the tray badge.
 

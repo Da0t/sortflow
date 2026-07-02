@@ -45,6 +45,9 @@ contextBridge.exposeInMainWorld("sortflow", {
   checkAccess: () => ipcRenderer.invoke("fs:checkAccess"),
   moveEntry: (from: string, destDir: string) =>
     ipcRenderer.invoke("files:move", from, destDir),
+  createFolder: (parent: string, name: string) =>
+    ipcRenderer.invoke("fs:createFolder", parent, name),
+  trashEntry: (path: string) => ipcRenderer.invoke("fs:trash", path),
   listPipelines: () => ipcRenderer.invoke("pipelines:list"),
   switchPipeline: (id: string, draft?: unknown) =>
     ipcRenderer.invoke("pipelines:setActive", id, draft),

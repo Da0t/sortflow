@@ -243,6 +243,45 @@ body {
   font-weight: 600;
 }
 
+/* Bubble actions (new folder / trash) — revealed on hover. */
+.sf-bubble-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.sf-bubble:hover .sf-bubble-actions {
+  opacity: 1;
+}
+
+.sf-bubble-actions button {
+  display: flex;
+  border: none;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--sf-text-muted);
+}
+
+.sf-bubble-actions button:hover {
+  color: var(--sf-primary);
+}
+
+.sf-bubble-actions button[aria-label^="Move"]:hover {
+  color: var(--sf-danger);
+}
+
+/* Inline new-folder naming input. */
+.sf-creator input {
+  width: 110px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 10.5px;
+  color: var(--sf-text);
+}
+
 /* Hover-revealed satellite chip (one file/folder inside a bubble). */
 .sf-chipnode {
   display: flex;
