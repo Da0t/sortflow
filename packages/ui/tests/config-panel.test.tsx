@@ -1,4 +1,4 @@
-import type { MoveConfig, Pipeline } from "@sortflow/engine";
+import type { MoveConfig, Pipeline, WatchConfig } from "@sortflow/engine";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -83,6 +83,43 @@ describe("ConfigPanel: Browse button", () => {
       .config as MoveConfig;
     expect(cfg.destination).toBe("~/Docs");
     vi.restoreAllMocks();
+  });
+});
+
+const watchDemo: Pipeline = {
+  nodes: [
+    {
+      id: "w1",
+      kind: "watch",
+      config: { path: "~/Downloads", recursive: false, scanExisting: false },
+      position: { x: 0, y: 0 },
+    },
+  ],
+  edges: [],
+};
+
+describe("ConfigPanel: watch node", () => {
+  it("shows scanExisting checkbox for watch nodes", () => {
+    useFlowStore.getState().loadPipeline(watchDemo);
+    useFlowStore.getState().setSelected("w1");
+    render(<ConfigPanel />);
+    expect(
+      screen.getByLabelText(/sort existing files when applied/i),
+    ).toBeTruthy();
+  });
+
+  it("toggling scanExisting updates toPipeline() watch config", () => {
+    useFlowStore.getState().loadPipeline(watchDemo);
+    useFlowStore.getState().setSelected("w1");
+    render(<ConfigPanel />);
+    const cb = screen.getByLabelText(
+      /sort existing files when applied/i,
+    ) as HTMLInputElement;
+    expect(cb.checked).toBe(false);
+    fireEvent.click(cb);
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as WatchConfig;
+    expect(cfg.scanExisting).toBe(true);
   });
 });
 

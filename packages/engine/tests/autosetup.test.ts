@@ -186,6 +186,15 @@ describe("suggestPipeline", () => {
     expect(watch.position).toEqual({ x: 40, y: 200 });
   });
 
+  it("watch node has scanExisting: true", () => {
+    const scan = { total: 0, buckets: [] };
+    const pipeline = suggestPipeline("/watch/path", scan);
+    const watchNode = pipeline.nodes[0];
+    expect((watchNode.config as { scanExisting: boolean }).scanExisting).toBe(
+      true,
+    );
+  });
+
   it("positions filter and move nodes correctly", () => {
     const scan = {
       total: 30,

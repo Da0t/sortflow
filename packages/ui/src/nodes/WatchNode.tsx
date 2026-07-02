@@ -23,7 +23,12 @@ export function WatchNode({ data }: NodeProps<FlowNode>) {
           </span>
         )}
       </div>
-      <div className="sf-node-body">{cfg.path}</div>
+      <div className="sf-node-body">
+        {cfg.path}
+        {cfg.scanExisting && (
+          <span className="sf-node-hint">+ existing files</span>
+        )}
+      </div>
       <Handle type="source" position={Position.Right} id="out" />
     </div>
   );

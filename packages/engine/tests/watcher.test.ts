@@ -68,4 +68,15 @@ describe("FolderWatcher", () => {
 
     expect(events).toHaveLength(0);
   }, 10_000);
+
+  it("emits pre-existing files when scanExisting is true", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sortflow-watch-"));
+    await writeFile(join(dir, "old.txt"), "x");
+    const { events, watcher } = collect();
+    watcher.watch("w1", { path: dir, recursive: false, scanExisting: true });
+    await sleep(800); // stability threshold passes
+
+    expect(events).toHaveLength(1);
+    expect(events[0].file.name).toBe("old.txt");
+  }, 10_000);
 });

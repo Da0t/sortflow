@@ -204,4 +204,118 @@ describe("Engine", () => {
     expect(engine.listProposals()).toHaveLength(0);
     expect(existsSync(join(inbox, "photo.jpg"))).toBe(true);
   }, 15_000);
+
+  it("scanExisting: 2 pre-existing files produce 2 proposals without new arrivals", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sortflow-scan-"));
+    const inbox = join(root, "inbox");
+    const dest = join(root, "sorted");
+    await mkdir(inbox, { recursive: true });
+    await writeFile(join(inbox, "a.txt"), "aaa");
+    await writeFile(join(inbox, "b.txt"), "bbb");
+
+    const pipeline: Pipeline = {
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: inbox, recursive: false, scanExisting: true },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "f1",
+          kind: "filter",
+          config: { extensions: [".txt"] },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "m1",
+          kind: "move",
+          config: { destination: dest, auto: false },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "w1", sourceHandle: "out", target: "f1" },
+        { id: "e2", source: "f1", sourceHandle: "match", target: "m1" },
+      ],
+    };
+    const neverClassify: Classifier = {
+      classify: async () => {
+        throw new Error("no classify");
+      },
+    };
+    engine = new Engine({
+      dataDir: join(root, "data"),
+      classifier: neverClassify,
+      watcherOptions: FAST,
+    });
+    await engine.start(pipeline);
+    await sleep(800);
+
+    const proposals = engine.listProposals();
+    expect(proposals).toHaveLength(2);
+    expect(proposals.every((p) => p.status === "pending")).toBe(true);
+  }, 15_000);
+
+  it("scanExisting: restart engine does not duplicate pending proposals", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sortflow-dedup-"));
+    const inbox = join(root, "inbox");
+    const dest = join(root, "sorted");
+    await mkdir(inbox, { recursive: true });
+    await writeFile(join(inbox, "file.txt"), "content");
+
+    const pipeline: Pipeline = {
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: inbox, recursive: false, scanExisting: true },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "f1",
+          kind: "filter",
+          config: { extensions: [".txt"] },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "m1",
+          kind: "move",
+          config: { destination: dest, auto: false },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "w1", sourceHandle: "out", target: "f1" },
+        { id: "e2", source: "f1", sourceHandle: "match", target: "m1" },
+      ],
+    };
+    const neverClassify: Classifier = {
+      classify: async () => {
+        throw new Error("no classify");
+      },
+    };
+
+    // First engine run — creates one proposal
+    engine = new Engine({
+      dataDir: join(root, "data"),
+      classifier: neverClassify,
+      watcherOptions: FAST,
+    });
+    await engine.start(pipeline);
+    await sleep(800);
+    expect(engine.listProposals()).toHaveLength(1);
+    await engine.stop();
+
+    // Second engine run on same dataDir — must not add a duplicate
+    engine = new Engine({
+      dataDir: join(root, "data"),
+      classifier: neverClassify,
+      watcherOptions: FAST,
+    });
+    await engine.start(pipeline);
+    await sleep(800);
+
+    expect(engine.listProposals()).toHaveLength(1);
+  }, 15_000);
 });

@@ -19,7 +19,7 @@ export class FolderWatcher {
 
   watch(nodeId: string, cfg: WatchConfig): void {
     const w = watch(cfg.path, {
-      ignoreInitial: true,
+      ignoreInitial: !cfg.scanExisting,
       depth: cfg.recursive ? undefined : 0,
       awaitWriteFinish: {
         stabilityThreshold: this.options.stabilityThreshold ?? 1500,

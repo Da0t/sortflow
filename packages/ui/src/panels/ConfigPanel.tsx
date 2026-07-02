@@ -169,6 +169,11 @@ export function ConfigPanel() {
                 value={c.recursive}
                 onChange={(v) => set({ ...c, recursive: v })}
               />
+              <CheckField
+                label="Sort existing files when applied"
+                value={c.scanExisting ?? false}
+                onChange={(v) => set({ ...c, scanExisting: v })}
+              />
             </>
           );
         })()}

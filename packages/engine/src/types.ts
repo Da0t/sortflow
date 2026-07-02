@@ -3,6 +3,7 @@ export type NodeKind = "watch" | "filter" | "classify" | "move";
 export interface WatchConfig {
   path: string;
   recursive: boolean;
+  scanExisting?: boolean;
 }
 
 export interface FilterConfig {

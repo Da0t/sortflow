@@ -174,6 +174,7 @@ export function suggestPipeline(
     config: {
       path: watchPath,
       recursive: false,
+      scanExisting: true,
     } satisfies WatchConfig,
     position: { x: 40, y: 200 },
   };

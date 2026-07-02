@@ -140,6 +140,12 @@ export class Engine extends EventEmitter {
         ext: file.ext,
         home: homedir(),
       });
+      // Duplicate-proposal guard: skip if a pending proposal already exists
+      // for this file (e.g. engine restart re-scans with scanExisting: true).
+      const alreadyPending = this.proposalStore
+        .list()
+        .some((p) => p.filePath === file.path && p.status === "pending");
+      if (alreadyPending) return;
       const proposal = await this.proposalStore.add(
         {
           filePath: file.path,
