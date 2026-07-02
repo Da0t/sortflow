@@ -27,7 +27,7 @@ This package is the entire renderer process — a Vite + React 19 app built arou
 | `src/panels/AutoSetupBanner.tsx` | Post-scan banner: files scanned, rules drafted, bucket summary, or the error. |
 | `src/panels/PipelineTabs.tsx` | Pipeline-library tab bar: switch (stashing the outgoing canvas as a draft), create, rename, delete, per-pipeline enable toggle, and the focus-mode button. |
 | `src/panels/ConfigPanel.tsx` | Right sidebar: per-kind config forms (filter presets, destination chips, rename pattern, date-grouping chip, auto-promotion offer at `PROMOTION_THRESHOLD`), Preview, and Save & Apply. |
-| `src/panels/ReviewTray.tsx` | Pending proposals: approve/reject (single and bulk), rename-before-move, failed-move display; animates the executed route on the canvas. |
+| `src/panels/ReviewTray.tsx` | Pending proposals: approve/reject (single and bulk), restore-rejected rescue, rename-before-move, failed-move display; animates the executed route on the canvas. |
 | `src/panels/HistoryPanel.tsx` | Move journal (`api.listJournal`) with per-entry Undo. |
 | `src/App.tsx` | Shell layout: `ReactFlowProvider`, the canvas (drop handling, edge reconnect/delete gesture), and conditional panels under `focusMode`. |
 | `src/main.tsx` | Boot: fetch the pipeline via `api.getPipeline`, subscribe to `onNodeStatus`, render `<App />`. |
@@ -41,7 +41,7 @@ This package is the entire renderer process — a Vite + React 19 app built arou
 - **Drag-and-drop is split into pure helpers.** In-app tree drags carry the path under `FOLDER_MIME` (already known to be a directory), while Finder drops resolve through `api.getPathForFile` + `api.isDirectory`. The decisions themselves (`handleFolderDrop`, `retargetMoveNode`) are pure functions, testable without a DOM. `MoveNode` re-reads its config from the store after the async `isDirectory` round-trip so a concurrent edit is not reverted by a stale spread.
 - **A custom edge replaces React Flow's default** so every edge gets a delete button and a flowing-dot animation (`animatePath` speeds it up for 3 s when a move executes). Dragging an edge end off any handle deletes it: a `reconnectSucceeded` ref set in `onReconnect` distinguishes rewire from drop-in-space.
 - **Trust is earned per Move node.** `ConfigPanel` shows the approval streak (`api.approvalStreak`) and only offers "Make automatic" after `PROMOTION_THRESHOLD` (10) consecutive approvals — automation is opt-in, never silent.
-- **`localStorage` access is always guarded** (`destBase.ts`, `loadRecents` in `ConfigPanel.tsx`): in tests or restricted contexts the feature degrades to session-only instead of throwing.
+- **`localStorage` reads are guarded** (`destBase.ts`, `loadCollapsed` in `Palette.tsx`, `loadRecents` in `ConfigPanel.tsx`): in tests or restricted contexts these features degrade to session-only instead of throwing.
 - **Focus mode is one store flag.** `App.tsx` conditionally drops the palette, config panel, and dock when `focusMode` is set, rather than juggling CSS visibility state.
 
 ## Testing
@@ -55,7 +55,7 @@ pnpm --filter @sortflow/ui test   # vitest run
 The suite in `tests/` covers:
 
 - `store.test.ts`, `app.test.tsx` — store mutations (`removeEdge`, `replaceEdge`, `addNode` overrides, `removeNode` + selection), pipeline round-tripping, focus mode hiding the panels.
-- `config-panel.test.tsx`, `promotion.test.tsx` — per-kind config editing, filter presets, destination chips, date-grouping chip, Preview counts, Save & Apply problems/warnings/errors, and the streak-based promotion offer.
+- `config-panel.test.tsx`, `promotion.test.tsx` — per-kind config editing, filter presets, destination chips, date-grouping chip, Preview counts, Save & Apply warnings and save errors, and the streak-based promotion offer.
 - `autosetup.test.tsx`, `generate.test.tsx` — Auto Setup loading the drafted pipeline and banner states (including the "Sort into" base being passed through), AI drafting success/error/disabled states.
 - `pipelineTabs.test.tsx`, `review-tray.test.tsx`, `folderTree.test.tsx` — tab switching/create/rename/delete/enable, approve/reject/bulk/rename-at-review, lazy folder expansion and drag payloads.
 - `folderDrop.test.ts`, `recentDestinations.test.ts` — the pure helpers, no DOM required.

@@ -27,7 +27,7 @@
 | --- | --- |
 | `pipeline:get` / `pipeline:set` / `pipeline:preview` / `pipeline:generate` | Active-pipeline read, save-and-apply, dry-run preview, and LLM drafting. `set` validates the *merged* graph (draft + other enabled pipelines), saves, hot-swaps the engine, and returns `detectWatchOverlaps` warnings. `generate` calls `OllamaGenerator` (default model `llama3.2:3b`), grounded in up to 30 real folder names under `destBase` and `~` so drafted destinations reuse existing spellings. |
 | `pipelines:list` / `setActive` / `create` / `rename` / `delete` / `setEnabled` | Library operations. `setActive`/`create` accept the editor's unsaved graph as a `draft` and persist it first. `delete` restarts the engine only if the removed pipeline was enabled and the shrunken merged graph still validates; `setEnabled` reverts the toggle when the merged graph fails validation. |
-| `proposals:list` / `approve` / `reject` / `rename`, `journal:list` / `journal:undo`, `streak:get` | Review queue, undo journal, and per-move-node approval streak, delegated to the current engine. |
+| `proposals:list` / `approve` / `reject` / `restoreRejected` / `rename`, `journal:list` / `journal:undo`, `streak:get` | Review queue (including the bulk restore of rejected proposals), undo journal, and per-move-node approval streak, delegated to the current engine. |
 | `autosetup:scan` | `scanFolder` + `suggestPipeline` for a `~`-expanded directory; returns `{ scan, pipeline }`. |
 | `dialog:pickFolder` | Native directory picker (`openDirectory`, `createDirectory`); resolves `null` on cancel. |
 | `fs:isDirectory` / `fs:listFolders` | Path check and shallow, hidden-filtered folder listing for the UI's folder tree. |

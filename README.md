@@ -1,8 +1,12 @@
 # Sortflow
 
-**Visual, node-based smart file organizer.** Watch your Downloads and Desktop,
-wire up filters and a local-AI classifier on a canvas, review proposed moves in
-one click, undo anything. Free, offline, MIT-licensed.
+[![ci](https://github.com/Da0t/sortflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Da0t/sortflow/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
+
+**Visual, node-based smart file organizer for macOS.** Watch your Downloads
+and Desktop, wire up filters and a local-AI classifier on a canvas, review
+proposed moves in one click, undo anything. Free, offline, MIT-licensed.
 
 <!-- demo gif goes here: record with the pipeline sorting a screenshot -->
 
@@ -11,12 +15,38 @@ one click, undo anything. Free, offline, MIT-licensed.
 - **The graph IS the rules.** No config files — drag Watch → Filter → AI
   Classify → Move nodes and connect them.
 - **Not overbearing.** New files become *proposals* in a review tray; nothing
-  moves until you approve. Rules you approve 10× in a row can go automatic.
+  moves until you approve. After ~10 straight approvals a rule's Move node
+  grows a one-click "Make automatic" option.
 - **Local AI, no API keys.** Ambiguous files are classified by
   [Ollama](https://ollama.com) on your machine. No Ollama? Everything still
   works — unclassified files just route to `unsure`.
 - **Safe by construction.** Journal-first moves, no deletes, no overwrites,
   full undo. Event-driven watching: ~0% CPU at idle.
+
+## Features
+
+- **Pipeline library** — multiple named pipelines in tabs; switch freely
+  (unsaved edits are stashed automatically), toggle each one on/off, and run
+  any number of them simultaneously.
+- **Auto Setup** — scan a messy folder once and get a drafted pipeline for
+  what's actually in it (screenshots, documents, installers, …).
+- **Describe It** — type *"GIFs from Downloads go to Desktop/GIFs"* and a
+  local Ollama model drafts the pipeline, grounded in your real folder names.
+  Drafts load on the canvas for review; nothing runs until you apply.
+- **Preview (dry run)** — see *"37 of 214 files would move: 22 →
+  Desktop/Screenshots…"* before applying anything.
+- **Your Folders** — a folder tree in the sidebar; drag any folder onto the
+  canvas to create a Move rule, or onto an existing Move node to retarget it.
+- **Sort into** — one setting points Auto Setup and Describe It at your
+  preferred base (Desktop, Documents, or any folder you pick).
+- **Review tray** — approve/reject singly or in bulk, rename a file before it
+  moves, and restore rejected proposals if you fat-finger "Reject all".
+- **AI classify with guidance** — give the classifier your own instructions
+  ("receipts are purchase screenshots") that ride along with every file.
+- **Tokens** — destinations and rename patterns understand `{category}`,
+  `{YYYY}-{MM}`, and file-date tokens like `{fileYYYY}` for date-aware sorting.
+- **Focus mode** — hide every panel and see just the graph.
+- **Menu-bar app** — pending-review badge, Launch at Login, ~0% CPU idle.
 
 ## How it works
 
@@ -33,15 +63,16 @@ You draw a flowchart once; Sortflow runs every new file through it forever.
 1. **📥 Watch** nodes are entry points. The moment a new file finishes saving
    into a watched folder, it enters the graph. (Event-driven — no scanning.)
 2. The file travels the wires, answering questions. **🔍 Filter** nodes check
-   extension / name pattern / size / age and route it out the `match` or
+   extension / name pattern / age and route it out the `match` or
    `else` handle. **🤖 AI Classify** nodes ask a local model which of *your*
    categories fits and route it out that category's handle.
 3. Reaching a **📁 Move** node doesn't move anything yet — it files a
    *proposal* in the **Review tray**: "`Screenshot.png` → `Pictures/Screenshots`".
    The menu-bar ⚑ shows how many proposals await you.
-4. **You approve** (single or bulk). The move is journaled *before* it happens,
-   so **Undo always works**. Approve a rule ~10 times in a row and its Move
-   node offers to go automatic.
+4. **You approve** (single or bulk — and rejected proposals can be restored).
+   The move is journaled *before* it happens, so **Undo always works**.
+   Approve a rule ~10 times in a row and a "Make automatic" button appears in
+   its Move node's settings.
 5. Files that dead-end (no wire for their answer) are left untouched. Sortflow
    never deletes or overwrites — name collisions get a ` (1)` suffix.
 
@@ -62,16 +93,28 @@ them by when they were created, not when you ran Sortflow.
 
 ## Install
 
-Download the latest `.dmg` from Releases, or build from source:
+macOS only for now. No packaged releases have shipped yet — build from
+source (takes about a minute):
 
 ```bash
 git clone https://github.com/Da0t/sortflow && cd sortflow
 pnpm install
+pnpm --filter @sortflow/app dist    # produces release/Sortflow-<version>-arm64.dmg
+```
+
+Or run the dev build:
+
+```bash
 pnpm --filter @sortflow/ui dev      # terminal 1
 pnpm --filter @sortflow/app dev     # terminal 2
 ```
 
-Optional AI classification: `brew install ollama && ollama pull llama3.2:3b`
+Optional local AI (classification + Describe It):
+
+```bash
+brew install ollama && brew services start ollama
+ollama pull llama3.2:3b
+```
 
 ## Architecture
 
@@ -108,7 +151,7 @@ flowchart LR
 
     subgraph app["Main process — packages/app (Electron)"]
         direction TB
-        IPC["IPC handlers<br/>pipeline: set / preview / generate<br/>pipelines: switch / create / enable …<br/>fs: listFolders / pickFolder"]
+        IPC["IPC handlers<br/>pipeline: set / preview / generate<br/>pipelines: switch / create / enable …<br/>fs: isDirectory / listFolders · dialog: pickFolder"]
         Library["PipelineLibrary<br/>named pipelines, one active (editor),<br/>any number enabled (running)"]
         Host["Engine host<br/>merges all enabled pipelines into one graph,<br/>hot-swaps the Engine on every apply"]
         MenuBar["Menu-bar ⚑<br/>pending-review badge · Launch at Login"]
@@ -197,9 +240,61 @@ flowchart TB
 See `docs/superpowers/specs/` for the original design doc, including the v2
 roadmap (embedding-based category suggestions from the unsure pile).
 
+## Project structure
+
+```
+packages/
+  engine/   pure-TS domain core — watching, routing, moves, undo, AI
+  app/      Electron main process — window, tray, IPC, engine host
+  ui/       React renderer — canvas, palette, tabs, review tray
+docs/       design specs and implementation plans
+```
+
+Each package has its own README with a module map and design notes:
+[`packages/engine`](packages/engine/README.md) ·
+[`packages/app`](packages/app/README.md) ·
+[`packages/ui`](packages/ui/README.md)
+
+## Development
+
+Prerequisites: Node 22+ and pnpm 10.4 (`corepack enable` respects the
+`packageManager` field).
+
+```bash
+pnpm install
+pnpm -r test                        # engine + ui vitest suites
+pnpm check                          # Biome lint + format
+pnpm --filter @sortflow/ui dev      # browser demo (mocked bridge, no Electron)
+pnpm --filter @sortflow/app dev     # full app against the Vite dev server
+pnpm --filter @sortflow/app dist    # package a .dmg into packages/app/release/
+```
+
+CI runs `pnpm check` and `pnpm -r test` on macOS for every push and PR.
+
+## FAQ
+
+**Do I need Ollama?** No — filters, moves, review, and undo all work without
+it. Ollama powers exactly two features: the AI Classify node and Describe It.
+Install with `brew install ollama && brew services start ollama && ollama
+pull llama3.2:3b`. If it's unreachable, classify routes files to `unsure`
+and Describe It shows a clear error.
+
+**Is it heavy?** No. Watching is event-driven (~0% CPU idle) and the AI model
+only loads during classification bursts, then unloads itself. On 8 GB
+machines you can switch a Classify node's model to `llama3.2:1b`.
+
+**macOS says the app is from an unidentified developer.** Local builds are
+unsigned. Right-click → Open the first time, or build it yourself from
+source.
+
+**Will it ever delete or overwrite my files?** No. Moves are journaled first,
+name collisions get a ` (1)` suffix, and rejection/undo never touch file
+contents.
+
 ## Contributing
 
-PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). `pnpm test` must pass.
+PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). `pnpm check` and
+`pnpm -r test` must pass (that's exactly what CI gates on).
 
 ## License
 
