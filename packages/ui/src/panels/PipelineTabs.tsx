@@ -1,5 +1,12 @@
 import type { PipelineLibrarySummary } from "@sortflow/engine";
-import { Plus, Power, TriangleAlert, X } from "lucide-react";
+import {
+  Maximize2,
+  Minimize2,
+  Plus,
+  Power,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../bridge";
 import { useFlowStore } from "../store";
@@ -18,6 +25,8 @@ export function PipelineTabs() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const loadPipeline = useFlowStore((s) => s.loadPipeline);
   const toPipeline = useFlowStore((s) => s.toPipeline);
+  const focusMode = useFlowStore((s) => s.focusMode);
+  const toggleFocusMode = useFlowStore((s) => s.toggleFocusMode);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,6 +145,23 @@ export function PipelineTabs() {
           onClick={() => void create()}
         >
           <Plus size={13} strokeWidth={2} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="sf-tabs-focus"
+          aria-label={focusMode ? "Show panels" : "Focus on the graph"}
+          title={
+            focusMode
+              ? "Show panels"
+              : "Focus mode — hide everything but the graph"
+          }
+          onClick={toggleFocusMode}
+        >
+          {focusMode ? (
+            <Minimize2 size={13} strokeWidth={2} aria-hidden="true" />
+          ) : (
+            <Maximize2 size={13} strokeWidth={2} aria-hidden="true" />
+          )}
         </button>
       </div>
       {problems.length > 0 && (

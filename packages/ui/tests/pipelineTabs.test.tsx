@@ -144,6 +144,19 @@ describe("PipelineTabs", () => {
     expect(useFlowStore.getState().nodes).toHaveLength(0);
   });
 
+  it("toggles focus mode from the tabs bar", async () => {
+    vi.spyOn(api, "listPipelines").mockResolvedValue(TWO);
+    render(<PipelineTabs />);
+    await screen.findByText("My Pipeline");
+    expect(useFlowStore.getState().focusMode).toBe(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: /focus on the graph/i }),
+    );
+    expect(useFlowStore.getState().focusMode).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /show panels/i }));
+    expect(useFlowStore.getState().focusMode).toBe(false);
+  });
+
   it("does not delete when the confirmation is declined", async () => {
     vi.spyOn(api, "listPipelines").mockResolvedValue(TWO);
     vi.spyOn(window, "confirm").mockReturnValue(false);

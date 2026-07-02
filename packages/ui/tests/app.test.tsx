@@ -1,5 +1,5 @@
 import type { Pipeline } from "@sortflow/engine";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import App from "../src/App";
 import { useFlowStore } from "../src/store";
@@ -32,6 +32,24 @@ const demo: Pipeline = {
 };
 
 describe("App", () => {
+  it("focus mode hides the palette, config panel, and dock", async () => {
+    useFlowStore.getState().loadPipeline(demo);
+    if (useFlowStore.getState().focusMode) {
+      useFlowStore.getState().toggleFocusMode();
+    }
+    render(<App />);
+    expect(screen.getByRole("button", { name: /add watch/i })).toBeTruthy();
+    const toggle = await screen.findByRole("button", {
+      name: /focus on the graph/i,
+    });
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("button", { name: /add watch/i })).toBeNull();
+    expect(screen.queryByText(/node settings/i)).toBeNull();
+    expect(screen.queryByText(/nothing waiting for review/i)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /show panels/i }));
+    expect(screen.getByRole("button", { name: /add watch/i })).toBeTruthy();
+  });
+
   it("renders the palette and the loaded pipeline nodes", async () => {
     useFlowStore.getState().loadPipeline(demo);
     render(<App />);

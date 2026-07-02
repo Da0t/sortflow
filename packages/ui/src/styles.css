@@ -154,6 +154,11 @@ body {
   color: var(--sf-text-muted);
 }
 
+.sf-tabs-focus {
+  margin-left: auto;
+  color: var(--sf-text-muted);
+}
+
 .sf-tabs-problems {
   padding: 4px 12px 8px;
   font-size: 12px;
@@ -234,6 +239,8 @@ body {
   gap: 4px;
   border-right: 1px solid var(--sf-border);
   background: var(--sf-surface);
+  overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .sf-palette-label {

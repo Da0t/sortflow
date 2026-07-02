@@ -131,6 +131,7 @@ function FlowCanvas({
 
 export default function App() {
   const [banner, setBanner] = useState<BannerState | null>(null);
+  const focusMode = useFlowStore((s) => s.focusMode);
 
   function handleAutoSetupResult(scan: FolderScan, ruleCount: number) {
     setBanner({ scan, ruleCount });
@@ -147,19 +148,23 @@ export default function App() {
   return (
     <div className="sf-shell">
       <div className="sf-app">
-        <Palette
-          onAutoSetupResult={handleAutoSetupResult}
-          onAutoSetupError={handleAutoSetupError}
-        />
+        {!focusMode && (
+          <Palette
+            onAutoSetupResult={handleAutoSetupResult}
+            onAutoSetupError={handleAutoSetupError}
+          />
+        )}
         <ReactFlowProvider>
           <FlowCanvas banner={banner} onDismissBanner={() => setBanner(null)} />
         </ReactFlowProvider>
-        <ConfigPanel />
+        {!focusMode && <ConfigPanel />}
       </div>
-      <div className="sf-dock">
-        <ReviewTray />
-        <HistoryPanel />
-      </div>
+      {!focusMode && (
+        <div className="sf-dock">
+          <ReviewTray />
+          <HistoryPanel />
+        </div>
+      )}
     </div>
   );
 }

@@ -34,6 +34,9 @@ interface FlowState {
   nodes: FlowNode[];
   edges: Edge[];
   selectedId: string | null;
+  /** Focus mode hides the palette, config panel, and dock — graph only. */
+  focusMode: boolean;
+  toggleFocusMode(): void;
   setSelected(id: string | null): void;
   onNodesChange(changes: NodeChange<FlowNode>[]): void;
   onEdgesChange(changes: EdgeChange[]): void;
@@ -59,6 +62,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   nodes: [],
   edges: [],
   selectedId: null,
+  focusMode: false,
+  toggleFocusMode: () => set({ focusMode: !get().focusMode }),
   setSelected: (id) => set({ selectedId: id }),
   onNodesChange: (changes) =>
     set({ nodes: applyNodeChanges(changes, get().nodes) }),
