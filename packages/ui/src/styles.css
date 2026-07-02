@@ -200,3 +200,37 @@ body {
   border-radius: 6px;
   cursor: pointer;
 }
+
+/* ── Connection handles ──────────────────────────────────────── */
+.react-flow__handle {
+  width: 11px;
+  height: 11px;
+  background: #2563eb;
+  border: 2px solid #fff;
+}
+.react-flow__handle:hover {
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25);
+}
+
+/* ── Edge delete button ──────────────────────────────────────── */
+.sf-edge-delete {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #c9c9d4;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.react-flow__edge:hover .sf-edge-delete,
+.sf-edge-delete-visible,
+.sf-edge-delete:focus-visible {
+  opacity: 1;
+}

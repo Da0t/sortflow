@@ -44,6 +44,8 @@ interface FlowState {
   animatePath(nodeIds: string[]): void;
   loadPipeline(p: Pipeline): void;
   toPipeline(): Pipeline;
+  removeEdge(id: string): void;
+  replaceEdge(id: string, connection: Connection): void;
 }
 
 let nextId = 1;
@@ -128,6 +130,20 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         target: e.target,
       })),
       selectedId: null,
+    }),
+  removeEdge: (id) => set({ edges: get().edges.filter((e) => e.id !== id) }),
+  replaceEdge: (id, connection) =>
+    set({
+      edges: get().edges.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              source: connection.source,
+              sourceHandle: connection.sourceHandle ?? e.sourceHandle,
+              target: connection.target,
+            }
+          : e,
+      ),
     }),
   toPipeline: (): Pipeline => ({
     nodes: get().nodes.map(

@@ -1,0 +1,96 @@
+import type { Pipeline } from "@sortflow/engine";
+import { describe, expect, it } from "vitest";
+import { useFlowStore } from "../src/store";
+
+const demo: Pipeline = {
+  nodes: [
+    {
+      id: "w1",
+      kind: "watch",
+      config: { path: "~/Downloads", recursive: false },
+      position: { x: 0, y: 0 },
+    },
+    {
+      id: "f1",
+      kind: "filter",
+      config: { extensions: [".png"] },
+      position: { x: 250, y: 0 },
+    },
+    {
+      id: "m1",
+      kind: "move",
+      config: { destination: "~/Pictures/Screenshots", auto: false },
+      position: { x: 500, y: 0 },
+    },
+  ],
+  edges: [
+    { id: "e1", source: "w1", sourceHandle: "out", target: "f1" },
+    { id: "e2", source: "f1", sourceHandle: "match", target: "m1" },
+  ],
+};
+
+describe("store: removeEdge", () => {
+  it("removes exactly the target edge, leaving others intact", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().removeEdge("e1");
+    const pipeline = useFlowStore.getState().toPipeline();
+    expect(pipeline.edges).toHaveLength(1);
+    expect(pipeline.edges[0].id).toBe("e2");
+  });
+
+  it("is a no-op when the edge id does not exist", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().removeEdge("nonexistent");
+    const pipeline = useFlowStore.getState().toPipeline();
+    expect(pipeline.edges).toHaveLength(2);
+  });
+
+  it("toPipeline reflects the removal", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().removeEdge("e2");
+    const pipeline = useFlowStore.getState().toPipeline();
+    expect(pipeline.edges.find((e) => e.id === "e2")).toBeUndefined();
+  });
+});
+
+describe("store: replaceEdge", () => {
+  it("rewires source/target/sourceHandle while keeping the same id", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().replaceEdge("e1", {
+      source: "w1",
+      sourceHandle: "out",
+      target: "m1",
+    });
+    const pipeline = useFlowStore.getState().toPipeline();
+    const edge = pipeline.edges.find((e) => e.id === "e1");
+    expect(edge).toBeDefined();
+    expect(edge?.source).toBe("w1");
+    expect(edge?.target).toBe("m1");
+    expect(edge?.sourceHandle).toBe("out");
+  });
+
+  it("keeps edge count the same after replaceEdge", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().replaceEdge("e2", {
+      source: "w1",
+      sourceHandle: "out",
+      target: "m1",
+    });
+    const pipeline = useFlowStore.getState().toPipeline();
+    expect(pipeline.edges).toHaveLength(2);
+  });
+
+  it("toPipeline reflects updated source and target", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().replaceEdge("e1", {
+      source: "f1",
+      sourceHandle: "match",
+      target: "m1",
+    });
+    const pipeline = useFlowStore.getState().toPipeline();
+    const edge = pipeline.edges.find((e) => e.id === "e1");
+    expect(edge?.source).toBe("f1");
+    expect(edge?.sourceHandle).toBe("match");
+    expect(edge?.target).toBe("m1");
+  });
+});
