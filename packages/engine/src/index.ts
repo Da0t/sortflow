@@ -5,6 +5,7 @@ export * from "./autosetup";
 export * from "./filter";
 export * from "./move";
 export * from "./journal";
+export * from "./library";
 export * from "./executor";
 export * from "./classify";
 export * from "./queue";
