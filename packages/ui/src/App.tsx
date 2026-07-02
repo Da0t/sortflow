@@ -1,6 +1,7 @@
 import { Background, Controls, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "./nodes";
+import { ConfigPanel } from "./panels/ConfigPanel";
 import { Palette } from "./panels/Palette";
 import { useFlowStore } from "./store";
 import "./styles.css";
@@ -31,6 +32,7 @@ export default function App() {
           <Controls />
         </ReactFlow>
       </div>
+      <ConfigPanel />
     </div>
   );
 }
