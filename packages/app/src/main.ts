@@ -2,9 +2,11 @@ import { join } from "node:path";
 import { Engine, type Pipeline } from "@sortflow/engine";
 import { BrowserWindow, app } from "electron";
 import { loadPipeline, registerIpc } from "./ipc";
+import { createTray } from "./tray";
 
 let win: BrowserWindow | null = null;
-const updateBadge: (count: number) => void = () => {}; // becomes the tray badge in Task 18
+let updateBadge: (count: number) => void = () => {};
+let quitting = false;
 
 function createWindow(): BrowserWindow {
   const w = new BrowserWindow({
@@ -22,8 +24,18 @@ function createWindow(): BrowserWindow {
   } else {
     void w.loadFile(join(process.resourcesPath, "ui", "index.html"));
   }
+  w.on("close", (e) => {
+    if (!quitting) {
+      e.preventDefault();
+      w.hide();
+    }
+  });
   return w;
 }
+
+app.on("before-quit", () => {
+  quitting = true;
+});
 
 app.whenReady().then(async () => {
   const dataDir = app.getPath("userData");
@@ -41,13 +53,18 @@ app.whenReady().then(async () => {
     console.error("engine failed to start with saved pipeline:", err);
   }
   win = createWindow();
+  const tray = createTray(() => {
+    if (BrowserWindow.getAllWindows().length === 0) win = createWindow();
+    else win?.show();
+  });
+  updateBadge = (count) => tray.setTitle(count > 0 ? `⚑ ${count}` : "⚑");
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) win = createWindow();
   });
 });
 
-// Keep running in the background when the window closes (tray app; Task 18 adds the tray icon).
+// Keep running in the background when the window closes (tray app).
 app.on("window-all-closed", () => {
   /* do not quit */
 });

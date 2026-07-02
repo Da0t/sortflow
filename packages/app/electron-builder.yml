@@ -1,0 +1,13 @@
+appId: com.datnguyen.sortflow
+productName: Sortflow
+directories:
+  output: release
+files:
+  - dist/**
+  - package.json
+extraResources:
+  - from: ../ui/dist
+    to: ui
+mac:
+  target: dmg
+  category: public.app-category.productivity
