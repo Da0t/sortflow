@@ -2,7 +2,7 @@
   "name": "@sortflow/app",
   "version": "0.1.0",
   "private": true,
-  "main": "dist/main.cjs",
+  "main": "dist/main.js",
   "scripts": {
     "build": "tsup src/main.ts src/preload.ts --format cjs --external electron --out-dir dist",
     "dev": "pnpm build && SORTFLOW_DEV=1 electron .",

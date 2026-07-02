@@ -14,7 +14,7 @@ function createWindow(): BrowserWindow {
     height: 800,
     title: "Sortflow",
     webPreferences: {
-      preload: join(__dirname, "preload.cjs"),
+      preload: join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
