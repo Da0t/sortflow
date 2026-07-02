@@ -37,6 +37,10 @@ interface FlowState {
   /** Focus mode hides the palette, config panel, and dock — graph only. */
   focusMode: boolean;
   toggleFocusMode(): void;
+  /** Bumped after Save & Apply so panels showing engine state re-fetch
+   * (pending destinations are re-pointed on every engine restart). */
+  refreshTick: number;
+  bumpRefresh(): void;
   setSelected(id: string | null): void;
   onNodesChange(changes: NodeChange<FlowNode>[]): void;
   onEdgesChange(changes: EdgeChange[]): void;
@@ -64,6 +68,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   selectedId: null,
   focusMode: false,
   toggleFocusMode: () => set({ focusMode: !get().focusMode }),
+  refreshTick: 0,
+  bumpRefresh: () => set({ refreshTick: get().refreshTick + 1 }),
   setSelected: (id) => set({ selectedId: id }),
   onNodesChange: (changes) =>
     set({ nodes: applyNodeChanges(changes, get().nodes) }),

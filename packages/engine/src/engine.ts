@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
+import type { Stats } from "node:fs";
+import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, join, parse } from "node:path";
 import { type Classifier, OllamaClassifier } from "./classify";
@@ -74,6 +76,9 @@ export class Engine extends EventEmitter {
     // Heal duplicate pending proposals (e.g. a rejected batch re-proposed by
     // a scanExisting sweep, then restored) — a file may only be queued once.
     await this.proposalStore.prunePendingDuplicates();
+    // Destinations are frozen at proposal time; re-align pending proposals
+    // with the pipeline that is actually about to run.
+    await this.refreshPendingProposals();
     for (const node of pipeline.nodes) {
       if (node.kind === "watch")
         this.watcher.watch(node.id, node.config as WatchConfig);
@@ -97,6 +102,44 @@ export class Engine extends EventEmitter {
         ok ? "ok" : "warning",
         ok ? undefined : "Ollama unreachable — files will route to unsure",
       );
+    }
+  }
+
+  /**
+   * Re-align pending proposals with the current pipeline. Destinations are
+   * expanded when a proposal is created, so a pipeline edit (e.g. re-pointing
+   * every Move node at ~/Desktop) must update what an approval will execute.
+   * Pending proposals whose move node vanished or whose file is gone are
+   * dropped — the watcher re-proposes them under the current rules.
+   */
+  private async refreshPendingProposals(): Promise<void> {
+    for (const p of this.proposalStore.list()) {
+      if (p.status !== "pending") continue;
+      const moveNode = nodeById(this.pipeline, p.moveNodeId);
+      let fileStat: Stats | undefined;
+      try {
+        fileStat = await stat(p.filePath);
+      } catch {
+        // File is no longer where the proposal expects it.
+      }
+      if (!moveNode || !fileStat) {
+        await this.proposalStore.remove(p.id);
+        continue;
+      }
+      const cfg = moveNode.config as MoveConfig;
+      if (cfg.destination.includes("{category}") && p.category === undefined) {
+        continue; // legacy record — the category cannot be re-resolved
+      }
+      const destDir = expandDestination(cfg.destination, {
+        category: p.category,
+        date: new Date(this.now()),
+        ext: extname(p.fileName).toLowerCase(),
+        home: homedir(),
+        fileDate: new Date(fileStat.birthtimeMs || fileStat.mtimeMs),
+      });
+      if (destDir !== p.destDir) {
+        await this.proposalStore.update(p.id, { destDir });
+      }
     }
   }
 
@@ -168,6 +211,7 @@ export class Engine extends EventEmitter {
           fileName: file.name,
           destDir,
           targetName,
+          category: route.category,
           moveNodeId: route.moveNodeId,
           routeNodeIds: route.nodePath,
         },

@@ -26,6 +26,8 @@ export function ReviewTray() {
     [refresh],
   );
 
+  const refreshTick = useFlowStore((s) => s.refreshTick);
+
   useEffect(() => {
     refresh().catch((e: unknown) => setError(message(e)));
     const offProposal = api.onProposal(() => void refresh());
@@ -40,6 +42,14 @@ export function ReviewTray() {
       offStuck();
     };
   }, [refresh]);
+
+  // Save & Apply restarts the engine, which re-points pending destinations —
+  // re-fetch so the tray shows what an approval will actually do.
+  useEffect(() => {
+    if (refreshTick > 0) {
+      refresh().catch((e: unknown) => setError(message(e)));
+    }
+  }, [refresh, refreshTick]);
 
   const commitRename = useCallback(() => {
     if (!editing) return;

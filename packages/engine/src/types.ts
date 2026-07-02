@@ -78,6 +78,7 @@ export interface Proposal {
   fileName: string;
   destDir: string; // fully expanded destination directory
   targetName?: string; // final filename incl. extension; absent = keep original
+  category?: string; // classify result, kept so destDir can be re-expanded
   moveNodeId: string;
   routeNodeIds: string[]; // node ids traversed (for UI animation)
   createdAt: number;

@@ -103,6 +103,50 @@ describe("Engine", () => {
     expect(existsSync(join(inbox, "note.txt"))).toBe(true);
   }, 15_000);
 
+  it("re-points pending proposals at the current pipeline on start", async () => {
+    const { root, inbox, dest, pipeline } = await setup(false);
+    if (!engine) throw new Error("setup failed");
+    await engine.start(pipeline);
+    await sleep(300);
+
+    const next = nextProposal(engine);
+    await writeFile(join(inbox, "note.txt"), "hi");
+    const proposal = await next;
+    expect(proposal.destDir).toBe(dest);
+    await engine.stop();
+
+    // The user re-points the Move node (e.g. at Desktop) and re-applies:
+    // the pending proposal must follow the pipeline, not stay frozen.
+    const newDest = join(root, "desktop-sorted");
+    const repointed: Pipeline = {
+      ...pipeline,
+      nodes: pipeline.nodes.map((n) =>
+        n.kind === "move"
+          ? { ...n, config: { destination: newDest, auto: false } }
+          : n,
+      ),
+    };
+    engine = new Engine({ dataDir: join(root, "data"), watcherOptions: FAST });
+    await engine.start(repointed);
+    const pending = engine
+      .listProposals()
+      .filter((p) => p.status === "pending");
+    expect(pending).toHaveLength(1);
+    expect(pending[0].destDir).toBe(newDest);
+
+    // A pending proposal whose move node vanished is dropped entirely.
+    await engine.stop();
+    const watchOnly: Pipeline = {
+      nodes: pipeline.nodes.filter((n) => n.kind === "watch"),
+      edges: [],
+    };
+    engine = new Engine({ dataDir: join(root, "data"), watcherOptions: FAST });
+    await engine.start(watchOnly);
+    expect(
+      engine.listProposals().filter((p) => p.status === "pending"),
+    ).toHaveLength(0);
+  }, 15_000);
+
   it("undoAllDone reverses every completed move", async () => {
     const { inbox, dest, pipeline, engine } = await setup(false);
     await engine.start(pipeline);

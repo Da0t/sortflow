@@ -182,6 +182,8 @@ export function ConfigPanel() {
       const ok = result.problems.length === 0;
       setSaved(ok);
       if (ok) {
+        // The engine restart re-points pending proposals — refresh the tray.
+        useFlowStore.getState().bumpRefresh();
         // Collect all move-node destinations and merge into MRU.
         const destinations = toPipeline()
           .nodes.filter((n) => n.kind === "move")

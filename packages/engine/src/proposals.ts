@@ -58,6 +58,13 @@ export class ProposalStore {
     await this.save();
   }
 
+  /** Delete a proposal record entirely (stale-pending cleanup). */
+  async remove(id: string): Promise<void> {
+    const before = this.items.length;
+    this.items = this.items.filter((p) => p.id !== id);
+    if (this.items.length !== before) await this.save();
+  }
+
   /** Flip every rejected proposal back to pending — the rescue path for a
    * bulk mis-rejection. A rejected proposal whose file is already queued
    * (e.g. re-proposed by a scanExisting sweep after the rejection) is
