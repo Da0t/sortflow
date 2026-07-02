@@ -2,7 +2,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   type EdgeProps,
-  getSmoothStepPath,
+  getBezierPath,
 } from "@xyflow/react";
 import { useFlowStore } from "../store";
 
@@ -22,14 +22,14 @@ export function DeletableEdge({
 }: EdgeProps) {
   const removeEdge = useFlowStore((s) => s.removeEdge);
 
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
-    borderRadius: 14,
+    curvature: 0.3,
   });
 
   return (
