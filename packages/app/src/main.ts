@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
   const dataDir = app.getPath("userData");
   const engine = new Engine({ dataDir });
   const pipeline: Pipeline = await loadPipeline(dataDir);
-  registerIpc(
+  const { pendingCount } = registerIpc(
     engine,
     dataDir,
     () => win,
@@ -58,6 +58,9 @@ app.whenReady().then(async () => {
     else win?.show();
   });
   updateBadge = (count) => tray.setTitle(count > 0 ? `⚑ ${count}` : "⚑");
+  // Reflect any pending reviews restored from disk immediately on relaunch,
+  // instead of waiting for the next engine event to refresh the badge.
+  updateBadge(pendingCount());
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) win = createWindow();

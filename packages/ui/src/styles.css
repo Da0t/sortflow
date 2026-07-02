@@ -165,6 +165,13 @@ body {
 .sf-empty {
   color: #999;
 }
+.sf-error {
+  color: #dc2626;
+  font-size: 12px;
+}
+.sf-failed {
+  color: #b91c1c;
+}
 .sf-status {
   border-radius: 6px;
   padding: 1px 6px;

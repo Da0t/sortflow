@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld("sortflow", {
     subscribe("engine:proposal")(cb as never),
   onExecuted: (cb: (p: unknown) => void) =>
     subscribe("engine:executed")(cb as never),
+  onStuck: (cb: (p: unknown, message: unknown) => void) =>
+    subscribe("engine:stuck")(cb as never),
   onNodeStatus: (cb: (...a: unknown[]) => void) =>
     subscribe("engine:nodeStatus")(cb as never),
 });

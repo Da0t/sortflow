@@ -20,7 +20,7 @@ export function registerIpc(
   dataDir: string,
   getWin: () => BrowserWindow | null,
   onPending: (count: number) => void = () => {},
-): void {
+): { pendingCount: () => number } {
   let current = engine;
 
   const pendingCount = () =>
@@ -34,6 +34,10 @@ export function registerIpc(
     });
     e.on("executed", (p) => {
       send("engine:executed", p);
+      onPending(pendingCount());
+    });
+    e.on("stuck", (p, message) => {
+      send("engine:stuck", p, message);
       onPending(pendingCount());
     });
     e.on("nodeStatus", (nodeId, status, message) =>
@@ -52,10 +56,15 @@ export function registerIpc(
       JSON.stringify(pipeline, null, 2),
       "utf8",
     );
+    // Quiesce the old engine before swapping: drop its listeners so draining
+    // moves can't emit onto stale handlers, then stop() (which drains the move
+    // mutex) before the new engine takes over.
+    current.removeAllListeners();
     await current.stop();
     current = new Engine({ dataDir });
     wire(current);
     await current.start(pipeline);
+    onPending(pendingCount());
     return { problems: [] };
   });
 
@@ -73,4 +82,6 @@ export function registerIpc(
   ipcMain.handle("streak:get", (_evt, moveNodeId: string) =>
     current.approvalStreak(moveNodeId),
   );
+
+  return { pendingCount };
 }

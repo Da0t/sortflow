@@ -11,6 +11,7 @@ export interface SortflowApi {
   approvalStreak(moveNodeId: string): Promise<number>;
   onProposal(cb: (p: Proposal) => void): () => void;
   onExecuted(cb: (p: Proposal) => void): () => void;
+  onStuck(cb: (p: Proposal, message: string) => void): () => void;
   onNodeStatus(
     cb: (nodeId: string, status: string, message?: string) => void,
   ): () => void;
@@ -70,6 +71,10 @@ function createMockApi(): SortflowApi {
     onExecuted(cb) {
       executedCbs.add(cb);
       return () => executedCbs.delete(cb);
+    },
+    onStuck() {
+      // Mock: the browser demo never fails a move, so this never fires.
+      return () => {};
     },
     onNodeStatus() {
       return () => {};
