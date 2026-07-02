@@ -682,3 +682,81 @@ input:focus-visible {
   outline: 2px solid var(--sf-primary);
   outline-offset: 2px;
 }
+
+/* ── Browse button row ──────────────────────────────────────────── */
+.sf-field-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.sf-field-row .sf-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.sf-browse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-surface);
+  color: var(--sf-text-muted);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease;
+  flex-shrink: 0;
+}
+
+.sf-browse-btn:hover {
+  background: var(--sf-primary-soft);
+  color: var(--sf-primary);
+  border-color: var(--sf-primary);
+}
+
+.sf-browse-btn:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}
+
+/* ── Destination chips ──────────────────────────────────────────── */
+.sf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.sf-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--sf-border);
+  border-radius: 10px;
+  background: var(--sf-bg);
+  color: var(--sf-text-muted);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms
+    ease;
+}
+
+.sf-chip:hover {
+  background: var(--sf-primary-soft);
+  color: var(--sf-primary);
+  border-color: var(--sf-primary);
+}
+
+.sf-chip:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}

@@ -38,7 +38,10 @@ interface FlowState {
   onNodesChange(changes: NodeChange<FlowNode>[]): void;
   onEdgesChange(changes: EdgeChange[]): void;
   onConnect(c: Connection): void;
-  addNode(kind: NodeKind): void;
+  addNode(
+    kind: NodeKind,
+    overrides?: { config?: NodeConfig; position?: { x: number; y: number } },
+  ): void;
   updateConfig(id: string, config: NodeConfig): void;
   setNodeStatus(id: string, status: string, message?: string): void;
   animatePath(nodeIds: string[]): void;
@@ -72,18 +75,23 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         },
       ],
     }),
-  addNode: (kind) =>
+  addNode: (kind, overrides) =>
     set({
       nodes: [
         ...get().nodes,
         {
           id: genId(),
           type: kind,
-          position: {
+          position: overrides?.position ?? {
             x: 120 + get().nodes.length * 40,
             y: 120 + get().nodes.length * 30,
           },
-          data: { kind, config: structuredClone(DEFAULT_CONFIGS[kind]) },
+          data: {
+            kind,
+            config: overrides?.config
+              ? structuredClone(overrides.config)
+              : structuredClone(DEFAULT_CONFIGS[kind]),
+          },
         },
       ],
     }),

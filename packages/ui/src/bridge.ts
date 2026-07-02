@@ -21,6 +21,9 @@ export interface SortflowApi {
     cb: (nodeId: string, status: string, message?: string) => void,
   ): () => void;
   autoSetup(path: string): Promise<{ scan: FolderScan; pipeline: Pipeline }>;
+  pickFolder(defaultPath?: string): Promise<string | null>;
+  getPathForFile(file: File): string;
+  isDirectory(path: string): Promise<boolean>;
 }
 
 const EMPTY: Pipeline = { nodes: [], edges: [] };
@@ -84,6 +87,15 @@ function createMockApi(): SortflowApi {
     },
     onNodeStatus() {
       return () => {};
+    },
+    async pickFolder(_defaultPath?: string) {
+      return "/Users/demo/Documents/Picked";
+    },
+    getPathForFile(_file: File) {
+      return "";
+    },
+    async isDirectory(_path: string) {
+      return false;
     },
     async autoSetup(_path: string) {
       const scan: FolderScan = {

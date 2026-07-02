@@ -1,4 +1,4 @@
-import type { Pipeline } from "@sortflow/engine";
+import type { MoveConfig, Pipeline } from "@sortflow/engine";
 import { describe, expect, it } from "vitest";
 import { useFlowStore } from "../src/store";
 
@@ -92,5 +92,45 @@ describe("store: replaceEdge", () => {
     expect(edge?.source).toBe("f1");
     expect(edge?.sourceHandle).toBe("match");
     expect(edge?.target).toBe("m1");
+  });
+});
+
+describe("store: addNode overrides", () => {
+  it("zero-arg call still uses default config", () => {
+    useFlowStore.getState().loadPipeline({ nodes: [], edges: [] });
+    useFlowStore.getState().addNode("move");
+    const p = useFlowStore.getState().toPipeline();
+    expect(p.nodes).toHaveLength(1);
+    expect((p.nodes[0].config as MoveConfig).destination).toBe(
+      "~/Documents/Sorted/{category}",
+    );
+  });
+
+  it("overrides.config merges over defaults", () => {
+    useFlowStore.getState().loadPipeline({ nodes: [], edges: [] });
+    useFlowStore
+      .getState()
+      .addNode("move", { config: { destination: "/tmp/sorted", auto: false } });
+    const p = useFlowStore.getState().toPipeline();
+    expect((p.nodes[0].config as MoveConfig).destination).toBe("/tmp/sorted");
+  });
+
+  it("overrides.position replaces the default stagger position", () => {
+    useFlowStore.getState().loadPipeline({ nodes: [], edges: [] });
+    useFlowStore.getState().addNode("move", { position: { x: 999, y: 888 } });
+    const p = useFlowStore.getState().toPipeline();
+    expect(p.nodes[0].position).toEqual({ x: 999, y: 888 });
+  });
+
+  it("overrides.config does not affect a subsequent zero-arg addNode", () => {
+    useFlowStore.getState().loadPipeline({ nodes: [], edges: [] });
+    useFlowStore
+      .getState()
+      .addNode("move", { config: { destination: "/custom", auto: true } });
+    useFlowStore.getState().addNode("move");
+    const p = useFlowStore.getState().toPipeline();
+    expect((p.nodes[1].config as MoveConfig).destination).toBe(
+      "~/Documents/Sorted/{category}",
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import { join } from "node:path";
 import {
@@ -8,7 +8,7 @@ import {
   suggestPipeline,
   validatePipeline,
 } from "@sortflow/engine";
-import { type BrowserWindow, ipcMain } from "electron";
+import { type BrowserWindow, dialog, ipcMain } from "electron";
 
 const EMPTY: Pipeline = { nodes: [], edges: [] };
 
@@ -97,6 +97,24 @@ export function registerIpc(
     const scan = await scanFolder(expanded);
     const pipeline = suggestPipeline(expanded, scan);
     return { scan, pipeline };
+  });
+
+  ipcMain.handle("dialog:pickFolder", async (_evt, defaultPath?: string) => {
+    const win = getWin();
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openDirectory", "createDirectory"],
+      ...(defaultPath ? { defaultPath } : {}),
+    });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+
+  ipcMain.handle("fs:isDirectory", async (_evt, path: string) => {
+    try {
+      return (await stat(path)).isDirectory();
+    } catch {
+      return false;
+    }
   });
 
   return { pendingCount };

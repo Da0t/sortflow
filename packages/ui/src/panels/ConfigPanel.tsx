@@ -5,12 +5,32 @@ import type {
   NodeConfig,
   WatchConfig,
 } from "@sortflow/engine";
-import { TriangleAlert } from "lucide-react";
+import { FolderOpen, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../bridge";
+import {
+  DEFAULTS,
+  buildChips,
+  mergeMany,
+  mergeRecents,
+} from "../lib/recentDestinations";
 import { useFlowStore } from "../store";
 
 export const PROMOTION_THRESHOLD = 10;
+
+const RECENTS_KEY = "sf-recent-destinations";
+
+function loadRecents(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]") as string[];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecents(recents: string[]): void {
+  localStorage.setItem(RECENTS_KEY, JSON.stringify(recents));
+}
 
 function TextField({
   label,
@@ -45,6 +65,44 @@ function CheckField({
   );
 }
 
+function BrowseButton({ onPick }: { onPick: (path: string) => void }) {
+  return (
+    <button
+      type="button"
+      className="sf-browse-btn"
+      aria-label="Browse for folder"
+      onClick={async () => {
+        const path = await api.pickFolder();
+        if (path) onPick(path);
+      }}
+    >
+      <FolderOpen size={14} strokeWidth={2} aria-hidden="true" />
+      Browse…
+    </button>
+  );
+}
+
+function DestinationChips({ onSelect }: { onSelect: (path: string) => void }) {
+  const recents = loadRecents();
+  const chips = buildChips(recents, DEFAULTS);
+  if (chips.length === 0) return null;
+  return (
+    <div className="sf-chips">
+      {chips.map((chip) => (
+        <button
+          key={chip}
+          type="button"
+          className="sf-chip"
+          title={chip}
+          onClick={() => onSelect(chip)}
+        >
+          {chip}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function ConfigPanel() {
   const selectedId = useFlowStore((s) => s.selectedId);
   const node = useFlowStore((s) => s.nodes.find((n) => n.id === s.selectedId));
@@ -66,7 +124,18 @@ export function ConfigPanel() {
     try {
       const result = await api.setPipeline(toPipeline());
       setProblems(result.problems);
-      setSaved(result.problems.length === 0);
+      const ok = result.problems.length === 0;
+      setSaved(ok);
+      if (ok) {
+        // Collect all move-node destinations and merge into MRU.
+        const destinations = toPipeline()
+          .nodes.filter((n) => n.kind === "move")
+          .map((n) => (n.config as MoveConfig).destination)
+          .filter(Boolean);
+        if (destinations.length > 0) {
+          saveRecents(mergeMany(loadRecents(), destinations));
+        }
+      }
     } catch (err) {
       setSaveError(
         err instanceof Error ? err.message : "Failed to save pipeline",
@@ -87,11 +156,14 @@ export function ConfigPanel() {
           const c = node.data.config as WatchConfig;
           return (
             <>
-              <TextField
-                label="Folder path"
-                value={c.path}
-                onChange={(v) => set({ ...c, path: v })}
-              />
+              <div className="sf-field-row">
+                <TextField
+                  label="Folder path"
+                  value={c.path}
+                  onChange={(v) => set({ ...c, path: v })}
+                />
+                <BrowseButton onPick={(path) => set({ ...c, path })} />
+              </div>
               <CheckField
                 label="Include subfolders"
                 value={c.recursive}
@@ -162,10 +234,18 @@ export function ConfigPanel() {
           const c = node.data.config as MoveConfig;
           return (
             <>
-              <TextField
-                label="Destination"
-                value={c.destination}
-                onChange={(v) => set({ ...c, destination: v })}
+              <div className="sf-field-row">
+                <TextField
+                  label="Destination"
+                  value={c.destination}
+                  onChange={(v) => set({ ...c, destination: v })}
+                />
+                <BrowseButton
+                  onPick={(path) => set({ ...c, destination: path })}
+                />
+              </div>
+              <DestinationChips
+                onSelect={(path) => set({ ...c, destination: path })}
               />
               <CheckField
                 label="Automatic (skip review)"

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 function subscribe(channel: string) {
   return (cb: (...args: unknown[]) => void) => {
@@ -28,4 +28,8 @@ contextBridge.exposeInMainWorld("sortflow", {
   onNodeStatus: (cb: (...a: unknown[]) => void) =>
     subscribe("engine:nodeStatus")(cb as never),
   autoSetup: (path: string) => ipcRenderer.invoke("autosetup:scan", path),
+  pickFolder: (defaultPath?: string) =>
+    ipcRenderer.invoke("dialog:pickFolder", defaultPath),
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  isDirectory: (path: string) => ipcRenderer.invoke("fs:isDirectory", path),
 });

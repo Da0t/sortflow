@@ -1,5 +1,6 @@
 import type { MoveConfig, Pipeline } from "@sortflow/engine";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { api } from "../src/bridge";
 import { ConfigPanel } from "../src/panels/ConfigPanel";
@@ -47,5 +48,61 @@ describe("ConfigPanel", () => {
     fireEvent.click(screen.getByText(/save & apply/i));
     expect(await screen.findByText(/IPC channel closed/i)).toBeTruthy();
     vi.restoreAllMocks();
+  });
+});
+
+describe("ConfigPanel: Browse button", () => {
+  it("Browse button on Move node calls pickFolder and sets destination", async () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    const pickSpy = vi
+      .spyOn(api, "pickFolder")
+      .mockResolvedValue("/Users/demo/Picked");
+    render(<ConfigPanel />);
+    const browseBtn = screen.getByRole("button", { name: /browse/i });
+    await act(async () => {
+      fireEvent.click(browseBtn);
+    });
+    await screen.findByDisplayValue("/Users/demo/Picked");
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as MoveConfig;
+    expect(cfg.destination).toBe("/Users/demo/Picked");
+    pickSpy.mockRestore();
+  });
+
+  it("Browse cancel (pickFolder returns null) does not change destination", async () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    vi.spyOn(api, "pickFolder").mockResolvedValue(null);
+    render(<ConfigPanel />);
+    const browseBtn = screen.getByRole("button", { name: /browse/i });
+    await act(async () => {
+      fireEvent.click(browseBtn);
+    });
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as MoveConfig;
+    expect(cfg.destination).toBe("~/Docs");
+    vi.restoreAllMocks();
+  });
+});
+
+describe("ConfigPanel: destination chips", () => {
+  // loadRecents() catches localStorage errors and returns [] — defaults always appear.
+  it("renders default chips when no recents exist", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    render(<ConfigPanel />);
+    expect(screen.getByRole("button", { name: /Documents/i })).toBeTruthy();
+  });
+
+  it("clicking a chip sets the destination", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    render(<ConfigPanel />);
+    const chip = screen.getByRole("button", { name: /Documents/i });
+    fireEvent.click(chip);
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as MoveConfig;
+    expect(cfg.destination).toBe("~/Documents");
   });
 });
