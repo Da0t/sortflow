@@ -58,6 +58,7 @@ export interface IncomingFile {
   ext: string; // lowercase, with dot ('' if none)
   bytes: number;
   mtimeMs: number;
+  birthtimeMs?: number; // file creation time; absent on filesystems that report 0
 }
 
 export type ProposalStatus =

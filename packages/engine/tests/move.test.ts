@@ -29,6 +29,35 @@ describe("expandDestination", () => {
   });
 });
 
+describe("expandDestination — file-date tokens", () => {
+  const ctx = {
+    category: "Shots",
+    date: new Date(2026, 6, 1), // 2026-07-01 (the move date)
+    ext: ".png",
+    home: "/Users/dat",
+    fileDate: new Date(2024, 2, 15), // 2024-03-15 (the file's own date)
+  };
+
+  it("expands {fileYYYY}/{fileMM}/{fileDD} from fileDate", () => {
+    expect(expandDestination("~/Pics/{fileYYYY}/{fileMM}/{fileDD}", ctx)).toBe(
+      "/Users/dat/Pics/2024/03/15",
+    );
+  });
+
+  it("falls back to date when fileDate is absent", () => {
+    const noDate = { ...ctx, fileDate: undefined };
+    expect(
+      expandDestination("~/Pics/{fileYYYY}-{fileMM}-{fileDD}", noDate),
+    ).toBe("/Users/dat/Pics/2026-07-01");
+  });
+
+  it("mixed template: {fileYYYY} uses fileDate, {MM} uses date", () => {
+    expect(expandDestination("~/Pics/{fileYYYY}/{MM}", ctx)).toBe(
+      "/Users/dat/Pics/2024/07",
+    );
+  });
+});
+
 describe("uniqueDestination", () => {
   it("returns dir/name when free, then suffixes (1), (2)", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sortflow-"));

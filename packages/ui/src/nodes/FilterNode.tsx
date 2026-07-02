@@ -5,10 +5,14 @@ import type { FlowNode } from "../store";
 
 export function FilterNode({ data }: NodeProps<FlowNode>) {
   const cfg = data.config as FilterConfig;
+  const ageParts: string[] = [];
+  if (cfg.minAgeDays != null) ageParts.push(`> ${cfg.minAgeDays}d`);
+  if (cfg.maxAgeDays != null) ageParts.push(`< ${cfg.maxAgeDays}d`);
   const summary =
     [
       cfg.extensions?.length ? cfg.extensions.join(" ") : null,
       cfg.namePattern ?? null,
+      ageParts.length ? ageParts.join(" ") : null,
     ]
       .filter(Boolean)
       .join(" · ") || "any file";

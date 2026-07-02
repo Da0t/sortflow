@@ -6,6 +6,7 @@ export interface DestContext {
   date: Date;
   ext: string; // with dot
   home: string;
+  fileDate?: Date; // file's own creation/modification date; falls back to date when absent
 }
 
 export function expandDestination(template: string, ctx: DestContext): string {
@@ -13,9 +14,16 @@ export function expandDestination(template: string, ctx: DestContext): string {
   if (out.startsWith("~")) out = ctx.home + out.slice(1);
   const yyyy = String(ctx.date.getFullYear());
   const mm = String(ctx.date.getMonth() + 1).padStart(2, "0");
+  const src = ctx.fileDate ?? ctx.date;
+  const fileYYYY = String(src.getFullYear());
+  const fileMM = String(src.getMonth() + 1).padStart(2, "0");
+  const fileDD = String(src.getDate()).padStart(2, "0");
   return out
     .replaceAll("{YYYY}", yyyy)
     .replaceAll("{MM}", mm)
+    .replaceAll("{fileYYYY}", fileYYYY)
+    .replaceAll("{fileMM}", fileMM)
+    .replaceAll("{fileDD}", fileDD)
     .replaceAll("{ext}", ctx.ext.replace(/^\./, ""))
     .replaceAll("{category}", ctx.category ?? "Unsorted");
 }

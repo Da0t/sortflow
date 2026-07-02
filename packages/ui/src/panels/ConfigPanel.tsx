@@ -170,6 +170,15 @@ export function ConfigPanel() {
                 value={c.recursive}
                 onChange={(v) => set({ ...c, recursive: v })}
               />
+              {c.recursive && (
+                <p
+                  className="sf-hint-muted"
+                  style={{ fontSize: 12, color: "var(--sf-text-muted)" }}
+                >
+                  Files inside subfolders are sorted individually — folders
+                  themselves are never moved.
+                </p>
+              )}
               <CheckField
                 label="Sort existing files when applied"
                 value={c.scanExisting ?? false}
@@ -206,6 +215,40 @@ export function ConfigPanel() {
                 value={c.regex ?? false}
                 onChange={(v) => set({ ...c, regex: v })}
               />
+              <label htmlFor="sf-field-older-than-days-" className="sf-field">
+                Older than (days)
+                <input
+                  id="sf-field-older-than-days-"
+                  type="number"
+                  min={0}
+                  value={c.minAgeDays ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const n = Number(v);
+                    set({
+                      ...c,
+                      minAgeDays: v === "" || n < 0 ? undefined : n,
+                    });
+                  }}
+                />
+              </label>
+              <label htmlFor="sf-field-newer-than-days-" className="sf-field">
+                Newer than (days)
+                <input
+                  id="sf-field-newer-than-days-"
+                  type="number"
+                  min={0}
+                  value={c.maxAgeDays ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const n = Number(v);
+                    set({
+                      ...c,
+                      maxAgeDays: v === "" || n < 0 ? undefined : n,
+                    });
+                  }}
+                />
+              </label>
             </>
           );
         })()}
@@ -253,6 +296,14 @@ export function ConfigPanel() {
               <DestinationChips
                 onSelect={(path) => set({ ...c, destination: path })}
               />
+              <p
+                className="sf-hint-muted"
+                style={{ fontSize: 12, color: "var(--sf-text-muted)" }}
+              >
+                {
+                  "Tokens: {category} {YYYY} {MM} {fileYYYY} {fileMM} {fileDD} — file… tokens use the file's own date"
+                }
+              </p>
               <CheckField
                 label="Automatic (skip review)"
                 value={c.auto}

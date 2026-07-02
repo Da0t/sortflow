@@ -35,6 +35,7 @@ export class FolderWatcher {
           ext: extname(path).toLowerCase(),
           bytes: s.size,
           mtimeMs: s.mtimeMs,
+          birthtimeMs: s.birthtimeMs || undefined,
         });
       } catch {
         // file vanished between event and stat — nothing to do

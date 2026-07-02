@@ -46,7 +46,10 @@ You draw a flowchart once; Sortflow runs every new file through it forever.
    never deletes or overwrites — name collisions get a ` (1)` suffix.
 
 Move destinations accept tokens: `~/Docs/{category}/{YYYY}-{MM}` sorts by
-AI category and month automatically.
+AI category and month automatically. Use file-date tokens
+(`{fileYYYY}`, `{fileMM}`, `{fileDD}`) to sort by the file's own date —
+sweeping old files into `~/Pictures/Screenshots/{fileYYYY}-{fileMM}` groups
+them by when they were created, not when you ran Sortflow.
 
 ### Your first pipeline (60 seconds)
 

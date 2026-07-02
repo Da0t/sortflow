@@ -1,4 +1,9 @@
-import type { MoveConfig, Pipeline, WatchConfig } from "@sortflow/engine";
+import type {
+  FilterConfig,
+  MoveConfig,
+  Pipeline,
+  WatchConfig,
+} from "@sortflow/engine";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -159,5 +164,92 @@ describe("ConfigPanel: delete node", () => {
     useFlowStore.getState().setSelected(null);
     render(<ConfigPanel />);
     expect(screen.queryByRole("button", { name: /delete node/i })).toBeNull();
+  });
+});
+
+const filterDemo: Pipeline = {
+  nodes: [
+    {
+      id: "f1",
+      kind: "filter",
+      config: { extensions: [".pdf"] },
+      position: { x: 0, y: 0 },
+    },
+  ],
+  edges: [],
+};
+
+describe("ConfigPanel: filter age inputs", () => {
+  it("setting Older than 30 puts minAgeDays:30 in toPipeline()", () => {
+    useFlowStore.getState().loadPipeline(filterDemo);
+    useFlowStore.getState().setSelected("f1");
+    render(<ConfigPanel />);
+    const input = screen.getByLabelText(/older than/i) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "30" } });
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as FilterConfig;
+    expect(cfg.minAgeDays).toBe(30);
+  });
+
+  it("clearing Older than removes minAgeDays from config", () => {
+    useFlowStore.getState().loadPipeline({
+      nodes: [
+        {
+          id: "f1",
+          kind: "filter",
+          config: { extensions: [".pdf"], minAgeDays: 30 },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    });
+    useFlowStore.getState().setSelected("f1");
+    render(<ConfigPanel />);
+    const input = screen.getByLabelText(/older than/i) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "" } });
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as FilterConfig;
+    expect(cfg.minAgeDays).toBeUndefined();
+  });
+
+  it("renders the subfolder warning when recursive is checked", () => {
+    useFlowStore.getState().loadPipeline({
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: "~/Downloads", recursive: true },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    });
+    useFlowStore.getState().setSelected("w1");
+    render(<ConfigPanel />);
+    expect(screen.getByText(/files inside subfolders/i)).toBeTruthy();
+  });
+
+  it("does not render the subfolder warning when recursive is unchecked", () => {
+    useFlowStore.getState().loadPipeline({
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: "~/Downloads", recursive: false },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    });
+    useFlowStore.getState().setSelected("w1");
+    render(<ConfigPanel />);
+    expect(screen.queryByText(/files inside subfolders/i)).toBeNull();
+  });
+
+  it("renders the token helper line for move nodes", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    render(<ConfigPanel />);
+    expect(screen.getByText(/fileYYYY/i)).toBeTruthy();
   });
 });

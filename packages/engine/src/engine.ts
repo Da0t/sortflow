@@ -139,6 +139,7 @@ export class Engine extends EventEmitter {
         date: new Date(this.now()),
         ext: file.ext,
         home: homedir(),
+        fileDate: new Date(file.birthtimeMs ?? file.mtimeMs),
       });
       // Duplicate-proposal guard: skip if a pending proposal already exists
       // for this file (e.g. engine restart re-scans with scanExisting: true).

@@ -205,6 +205,57 @@ describe("Engine", () => {
     expect(existsSync(join(inbox, "photo.jpg"))).toBe(true);
   }, 15_000);
 
+  it("fileYYYY token produces a 4-digit-year folder in the proposal", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sortflow-filedate-"));
+    const inbox = join(root, "inbox");
+    await mkdir(inbox, { recursive: true });
+    const pipeline: Pipeline = {
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: inbox, recursive: false },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "f1",
+          kind: "filter",
+          config: { extensions: [".txt"] },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "m1",
+          kind: "move",
+          config: { destination: join(root, "{fileYYYY}"), auto: false },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "w1", sourceHandle: "out", target: "f1" },
+        { id: "e2", source: "f1", sourceHandle: "match", target: "m1" },
+      ],
+    };
+    const neverClassify: Classifier = {
+      classify: async () => {
+        throw new Error("no classify");
+      },
+    };
+    engine = new Engine({
+      dataDir: join(root, "data"),
+      classifier: neverClassify,
+      watcherOptions: FAST,
+    });
+    await engine.start(pipeline);
+    await sleep(300);
+
+    const proposalP = nextProposal(engine);
+    await writeFile(join(inbox, "file.txt"), "hi");
+    const proposal = await proposalP;
+
+    // destDir should end with a 4-digit year (e.g. /tmp/.../2026)
+    expect(/\d{4}$/.test(proposal.destDir)).toBe(true);
+  }, 15_000);
+
   it("scanExisting: 2 pre-existing files produce 2 proposals without new arrivals", async () => {
     const root = await mkdtemp(join(tmpdir(), "sortflow-scan-"));
     const inbox = join(root, "inbox");
