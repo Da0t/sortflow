@@ -215,7 +215,7 @@ body {
   display: inline-flex;
   justify-content: center;
   min-width: 100%;
-  padding: 24px 32px 48px;
+  padding: 14px 20px 36px;
 }
 
 /* One subtree: box on top, children row beneath. */
@@ -224,7 +224,7 @@ body {
   flex-direction: column;
   align-items: center;
   position: relative;
-  padding: 18px 5px 0;
+  padding: 11px 2px 0;
 }
 
 /* Vertical stem from the sibling rail down into this box. */
@@ -234,7 +234,7 @@ body {
   top: 0;
   left: 50%;
   width: 1px;
-  height: 18px;
+  height: 11px;
   background: var(--sf-border);
 }
 
@@ -275,16 +275,16 @@ body {
   display: flex;
   align-items: flex-start;
   position: relative;
-  margin-top: 18px;
+  margin-top: 11px;
 }
 
 .sf-btree-children::before {
   content: "";
   position: absolute;
-  top: -18px;
+  top: -11px;
   left: 50%;
   width: 1px;
-  height: 18px;
+  height: 11px;
   background: var(--sf-border);
 }
 
@@ -293,15 +293,14 @@ button.sf-btree-box,
 span.sf-btree-box {
   display: flex;
   align-items: center;
-  gap: 6px;
-  max-width: 180px;
-  padding: 5px 10px;
+  gap: 4px;
+  max-width: 130px;
+  padding: 2px 7px;
   border: 1px solid var(--sf-border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--sf-surface);
   color: var(--sf-text);
-  font-size: 12px;
-  box-shadow: var(--sf-shadow);
+  font-size: 11px;
   cursor: grab;
 }
 
@@ -322,7 +321,13 @@ button.sf-btree-box:hover {
   color: var(--sf-text-muted);
   font-style: italic;
   cursor: default;
-  box-shadow: none;
+}
+
+.sf-files-zoom {
+  font-size: 11.5px;
+  color: var(--sf-text-muted);
+  min-width: 34px;
+  text-align: center;
 }
 
 .sf-btree-chevron {

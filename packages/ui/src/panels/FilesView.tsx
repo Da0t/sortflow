@@ -5,6 +5,8 @@ import {
   Folder,
   House,
   RefreshCw,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ReactElement } from "react";
@@ -31,6 +33,7 @@ export function FilesView() {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(0.8);
 
   const load = useCallback(async (path: string) => {
     const kids = await api.listEntries(path);
@@ -189,6 +192,23 @@ export function FilesView() {
         <button
           type="button"
           className="sf-files-back"
+          aria-label="Zoom out"
+          onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(1)))}
+        >
+          <ZoomOut size={13} strokeWidth={2} aria-hidden="true" />
+        </button>
+        <span className="sf-files-zoom">{Math.round(zoom * 100)}%</span>
+        <button
+          type="button"
+          className="sf-files-back"
+          aria-label="Zoom in"
+          onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(1)))}
+        >
+          <ZoomIn size={13} strokeWidth={2} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="sf-files-back"
           onClick={refreshAll}
           aria-label="Refresh folders"
         >
@@ -202,7 +222,7 @@ export function FilesView() {
         </p>
       )}
       <div className="sf-btree-scroll">
-        <div className="sf-btree">
+        <div className="sf-btree" style={{ zoom }}>
           <div className="sf-btree-sub sf-btree-rootsub">
             <button
               type="button"
