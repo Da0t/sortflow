@@ -59,14 +59,53 @@ export class ProposalStore {
   }
 
   /** Flip every rejected proposal back to pending — the rescue path for a
-   * bulk mis-rejection. Returns how many were restored. */
+   * bulk mis-rejection. A rejected proposal whose file is already queued
+   * (e.g. re-proposed by a scanExisting sweep after the rejection) is
+   * dropped instead of restored, so a file never ends up pending twice.
+   * Returns how many were restored. */
   async restoreRejected(): Promise<number> {
-    const rejected = this.items.filter((p) => p.status === "rejected");
-    for (const p of rejected) {
-      p.status = "pending";
+    const pendingPaths = new Set(
+      this.items.filter((p) => p.status === "pending").map((p) => p.filePath),
+    );
+    let restored = 0;
+    let dropped = 0;
+    const kept: Proposal[] = [];
+    for (const p of this.items) {
+      if (p.status === "rejected") {
+        if (pendingPaths.has(p.filePath)) {
+          dropped++;
+          continue;
+        }
+        p.status = "pending";
+        pendingPaths.add(p.filePath);
+        restored++;
+      }
+      kept.push(p);
     }
-    if (rejected.length > 0) await this.save();
-    return rejected.length;
+    this.items = kept;
+    if (restored > 0 || dropped > 0) await this.save();
+    return restored;
+  }
+
+  /** Remove redundant pending proposals that point at the same file, keeping
+   * the newest (it reflects the current pipeline's routing). Approving two
+   * would move the file once and fail once. Returns how many were removed. */
+  async prunePendingDuplicates(): Promise<number> {
+    const newestByPath = new Map<string, Proposal>();
+    for (const p of this.items) {
+      if (p.status !== "pending") continue;
+      const seen = newestByPath.get(p.filePath);
+      if (!seen || p.createdAt > seen.createdAt) {
+        newestByPath.set(p.filePath, p);
+      }
+    }
+    const before = this.items.length;
+    this.items = this.items.filter(
+      (p) => p.status !== "pending" || newestByPath.get(p.filePath) === p,
+    );
+    const removed = before - this.items.length;
+    if (removed > 0) await this.save();
+    return removed;
   }
 
   /**

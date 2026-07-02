@@ -71,6 +71,9 @@ export class Engine extends EventEmitter {
     this.pipeline = pipeline;
     await this.journal.reconcile(this.now());
     await this.proposalStore.load();
+    // Heal duplicate pending proposals (e.g. a rejected batch re-proposed by
+    // a scanExisting sweep, then restored) — a file may only be queued once.
+    await this.proposalStore.prunePendingDuplicates();
     for (const node of pipeline.nodes) {
       if (node.kind === "watch")
         this.watcher.watch(node.id, node.config as WatchConfig);

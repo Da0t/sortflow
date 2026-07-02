@@ -12,8 +12,8 @@ async function store(): Promise<{ s: ProposalStore; file: string }> {
   return { s, file };
 }
 
-const draft = (moveNodeId = "m1") => ({
-  filePath: "/in/a.txt",
+const draft = (moveNodeId = "m1", filePath = "/in/a.txt") => ({
+  filePath,
   fileName: "a.txt",
   destDir: "/out",
   moveNodeId,
@@ -63,9 +63,9 @@ describe("ProposalStore", () => {
 
   it("restoreRejected flips only rejected proposals back to pending", async () => {
     const { s, file } = await store();
-    const a = await s.add(draft(), 1);
-    const b = await s.add(draft(), 2);
-    const c = await s.add(draft(), 3);
+    const a = await s.add(draft("m1", "/in/a.txt"), 1);
+    const b = await s.add(draft("m1", "/in/b.txt"), 2);
+    const c = await s.add(draft("m1", "/in/c.txt"), 3);
     await s.setStatus(a.id, "rejected");
     await s.setStatus(b.id, "rejected");
     await s.setStatus(c.id, "executed");
@@ -81,6 +81,40 @@ describe("ProposalStore", () => {
     );
     // Nothing rejected left — a second restore is a no-op.
     expect(await s.restoreRejected()).toBe(0);
+  });
+
+  it("restoreRejected drops rejected duplicates of files already pending", async () => {
+    const { s } = await store();
+    // File was proposed, rejected, then re-proposed by a scanExisting sweep.
+    const old = await s.add(draft("m1", "/in/x.txt"), 1);
+    await s.setStatus(old.id, "rejected");
+    await s.add(draft("m1", "/in/x.txt"), 2); // the fresh pending one
+    const lone = await s.add(draft("m1", "/in/y.txt"), 3);
+    await s.setStatus(lone.id, "rejected");
+    expect(await s.restoreRejected()).toBe(1); // only y.txt restored
+    const pendingPaths = s
+      .list()
+      .filter((p) => p.status === "pending")
+      .map((p) => p.filePath)
+      .sort();
+    expect(pendingPaths).toEqual(["/in/x.txt", "/in/y.txt"]); // no duplicates
+    expect(s.list().filter((p) => p.status === "rejected")).toHaveLength(0);
+  });
+
+  it("prunePendingDuplicates keeps only the newest pending per file", async () => {
+    const { s } = await store();
+    await s.add(draft("m1", "/in/x.txt"), 1);
+    const newer = await s.add(draft("m2", "/in/x.txt"), 5);
+    const executed = await s.add(draft("m1", "/in/x.txt"), 3);
+    await s.setStatus(executed.id, "executed");
+    await s.add(draft("m1", "/in/y.txt"), 2);
+    expect(await s.prunePendingDuplicates()).toBe(1);
+    const pending = s.list().filter((p) => p.status === "pending");
+    expect(pending).toHaveLength(2);
+    expect(pending.find((p) => p.filePath === "/in/x.txt")?.id).toBe(newer.id);
+    // Non-pending records are untouched.
+    expect(s.list().filter((p) => p.status === "executed")).toHaveLength(1);
+    expect(await s.prunePendingDuplicates()).toBe(0);
   });
 
   it("update patches the proposal and persists across reload", async () => {
