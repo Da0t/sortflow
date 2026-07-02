@@ -28,6 +28,38 @@ export function expandDestination(template: string, ctx: DestContext): string {
     .replaceAll("{category}", ctx.category ?? "Unsorted");
 }
 
+export interface RenameContext {
+  stem: string;
+  fileDate: Date;
+  moveDate: Date;
+}
+
+const ILLEGAL_CHARS = /[/\\:*?"<>|]/g;
+const LEADING_DOTS = /^\.+/;
+
+export function expandRename(pattern: string, ctx: RenameContext): string {
+  const fileYYYY = String(ctx.fileDate.getFullYear());
+  const fileMM = String(ctx.fileDate.getMonth() + 1).padStart(2, "0");
+  const fileDD = String(ctx.fileDate.getDate()).padStart(2, "0");
+  const yyyy = String(ctx.moveDate.getFullYear());
+  const mm = String(ctx.moveDate.getMonth() + 1).padStart(2, "0");
+  const dd = String(ctx.moveDate.getDate()).padStart(2, "0");
+
+  let result = pattern
+    .replaceAll("{name}", ctx.stem)
+    .replaceAll("{fileYYYY}", fileYYYY)
+    .replaceAll("{fileMM}", fileMM)
+    .replaceAll("{fileDD}", fileDD)
+    .replaceAll("{YYYY}", yyyy)
+    .replaceAll("{MM}", mm)
+    .replaceAll("{DD}", dd);
+
+  // Sanitize: strip illegal chars, leading dots, trim
+  result = result.replace(ILLEGAL_CHARS, "").replace(LEADING_DOTS, "").trim();
+
+  return result.length > 0 ? result : ctx.stem;
+}
+
 async function exists(p: string): Promise<boolean> {
   try {
     await access(p);

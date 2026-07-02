@@ -24,6 +24,7 @@ export interface ClassifyConfig {
 export interface MoveConfig {
   destination: string; // may contain {category} {YYYY} {MM} {ext}, leading ~
   auto: boolean; // true = execute without review
+  renamePattern?: string; // optional stem pattern; tokens: {name} {fileYYYY} {fileMM} {fileDD} {YYYY} {MM} {DD}
 }
 
 export type NodeConfig =
@@ -73,6 +74,7 @@ export interface Proposal {
   filePath: string;
   fileName: string;
   destDir: string; // fully expanded destination directory
+  targetName?: string; // final filename incl. extension; absent = keep original
   moveNodeId: string;
   routeNodeIds: string[]; // node ids traversed (for UI animation)
   createdAt: number;

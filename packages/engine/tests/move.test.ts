@@ -2,7 +2,11 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { expandDestination, uniqueDestination } from "../src/move";
+import {
+  expandDestination,
+  expandRename,
+  uniqueDestination,
+} from "../src/move";
 
 describe("expandDestination", () => {
   const ctx = {
@@ -72,5 +76,53 @@ describe("uniqueDestination", () => {
     expect(await uniqueDestination(dir, "report.pdf")).toBe(
       join(dir, "report (2).pdf"),
     );
+  });
+});
+
+describe("expandRename", () => {
+  const ctx = {
+    stem: "my report",
+    fileDate: new Date(2024, 2, 15), // 2024-03-15
+    moveDate: new Date(2026, 6, 1), // 2026-07-01
+  };
+
+  it("expands {name} token to original stem", () => {
+    expect(expandRename("{name}", ctx)).toBe("my report");
+  });
+
+  it("expands file date tokens from fileDate", () => {
+    expect(expandRename("{fileYYYY}-{fileMM}-{fileDD}", ctx)).toBe(
+      "2024-03-15",
+    );
+  });
+
+  it("expands move date tokens from moveDate", () => {
+    expect(expandRename("{YYYY}-{MM}-{DD}", ctx)).toBe("2026-07-01");
+  });
+
+  it("expands mixed pattern", () => {
+    expect(expandRename("{fileYYYY}-{fileMM} {name}", ctx)).toBe(
+      "2024-03 my report",
+    );
+  });
+
+  it("strips illegal path-separator chars", () => {
+    expect(expandRename('a/b\\c:d*e?f"g<h>i|j', ctx)).toBe("abcdefghij");
+  });
+
+  it("strips leading dots", () => {
+    expect(expandRename("...hidden", ctx)).toBe("hidden");
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(expandRename("  hello  ", ctx)).toBe("hello");
+  });
+
+  it("falls back to original stem when sanitized result is empty", () => {
+    expect(expandRename("///", ctx)).toBe("my report");
+  });
+
+  it("falls back to stem when pattern is empty string", () => {
+    expect(expandRename("", ctx)).toBe("my report");
   });
 });

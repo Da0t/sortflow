@@ -116,3 +116,39 @@ describe("undoMove", () => {
     expect(existsSync(done.to)).toBe(false);
   });
 });
+
+describe("executeMove: targetName", () => {
+  it("targetName overrides the source basename for the destination", async () => {
+    const { dst, journal, from } = await setup();
+    const done = await executeMove(
+      {
+        id: "j1",
+        from,
+        toDir: dst,
+        moveNodeId: "m1",
+        targetName: "renamed.txt",
+      },
+      journal,
+    );
+    expect(done.status).toBe("done");
+    expect(done.to).toBe(join(dst, "renamed.txt"));
+    expect(existsSync(from)).toBe(false);
+  });
+
+  it("targetName collision gets suffixed", async () => {
+    const { dst, journal, from } = await setup();
+    await mkdir(dst, { recursive: true });
+    await writeFile(join(dst, "renamed.txt"), "existing");
+    const done = await executeMove(
+      {
+        id: "j1",
+        from,
+        toDir: dst,
+        moveNodeId: "m1",
+        targetName: "renamed.txt",
+      },
+      journal,
+    );
+    expect(done.to).toBe(join(dst, "renamed (1).txt"));
+  });
+});

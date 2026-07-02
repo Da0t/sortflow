@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { extname, join, parse } from "node:path";
 import { type Classifier, OllamaClassifier } from "./classify";
 import { MoveFailedError, executeMove, undoMove } from "./executor";
 import { nodeById, validatePipeline } from "./graph";
 import { Journal } from "./journal";
-import { expandDestination } from "./move";
+import { expandDestination, expandRename } from "./move";
 import { ProposalStore } from "./proposals";
 import { ClassifyQueue } from "./queue";
 import { routeFile } from "./route";
@@ -147,11 +147,24 @@ export class Engine extends EventEmitter {
         .list()
         .some((p) => p.filePath === file.path && p.status === "pending");
       if (alreadyPending) return;
+      // Optional automatic rename: expand the move node's pattern into a new
+      // stem, keeping the file's original extension.
+      let targetName: string | undefined;
+      if (cfg.renamePattern) {
+        const parsed = parse(file.name);
+        targetName =
+          expandRename(cfg.renamePattern, {
+            stem: parsed.name,
+            fileDate: new Date(file.birthtimeMs ?? file.mtimeMs),
+            moveDate: new Date(this.now()),
+          }) + parsed.ext;
+      }
       const proposal = await this.proposalStore.add(
         {
           filePath: file.path,
           fileName: file.name,
           destDir,
+          targetName,
           moveNodeId: route.moveNodeId,
           routeNodeIds: route.nodePath,
         },
@@ -180,6 +193,7 @@ export class Engine extends EventEmitter {
             from: p.filePath,
             toDir: p.destDir,
             moveNodeId: p.moveNodeId,
+            targetName: p.targetName,
           },
           this.journal,
           { now: this.now },
@@ -205,6 +219,31 @@ export class Engine extends EventEmitter {
 
   async reject(proposalId: string): Promise<void> {
     await this.proposalStore.setStatus(proposalId, "rejected");
+  }
+
+  /**
+   * Change the file name a pending proposal will move the file to.
+   * Forgiving by design: illegal characters are stripped, the original
+   * extension is always preserved, and non-pending proposals are left
+   * untouched (the tray may race an auto-approve).
+   */
+  async renameProposal(
+    proposalId: string,
+    newName: string,
+  ): Promise<Proposal | undefined> {
+    const p = this.proposalStore.get(proposalId);
+    if (!p || p.status !== "pending") return p;
+    const ext = extname(p.fileName);
+    let stem = newName.replace(/[/\\:*?"<>|]/g, "").trim();
+    if (ext && stem.toLowerCase().endsWith(ext.toLowerCase())) {
+      stem = stem.slice(0, -ext.length);
+    } else {
+      const typedExt = extname(stem);
+      if (typedExt) stem = stem.slice(0, -typedExt.length);
+    }
+    stem = stem.replace(/^\.+/, "").trim();
+    if (!stem) return p;
+    return this.proposalStore.rename(proposalId, stem + ext);
   }
 
   async undo(journalEntryId: string): Promise<JournalEntry> {

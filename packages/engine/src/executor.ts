@@ -10,6 +10,8 @@ export interface MoveRequest {
   from: string;
   toDir: string;
   moveNodeId: string;
+  /** Optional new file name at the destination; defaults to the source name. */
+  targetName?: string;
 }
 
 export interface ExecOptions {
@@ -56,7 +58,10 @@ export async function executeMove(
 ): Promise<JournalEntry> {
   const { retries = 3, backoffMs = 250, now = Date.now } = opts;
   await mkdir(req.toDir, { recursive: true });
-  const to = await uniqueDestination(req.toDir, basename(req.from));
+  const to = await uniqueDestination(
+    req.toDir,
+    req.targetName ?? basename(req.from),
+  );
   const base = { id: req.id, from: req.from, to, moveNodeId: req.moveNodeId };
   await journal.append({ ...base, ts: now(), status: "intent" });
   let lastErr: unknown;

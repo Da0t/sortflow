@@ -58,6 +58,32 @@ export class ProposalStore {
     await this.save();
   }
 
+  /**
+   * Rename a pending proposal's target file name. The file on disk is not
+   * touched; the new name takes effect when the proposal is approved.
+   */
+  async rename(id: string, newName: string): Promise<Proposal> {
+    const name = newName.trim();
+    if (!name || name === "." || name === ".." || /[/\\]/.test(name)) {
+      throw new Error(`invalid file name: ${JSON.stringify(newName)}`);
+    }
+    const p = this.get(id);
+    if (!p) throw new Error(`unknown proposal ${id}`);
+    if (p.status !== "pending") {
+      throw new Error(`cannot rename ${id}: proposal is ${p.status}`);
+    }
+    p.targetName = name;
+    await this.save();
+    return p;
+  }
+
+  async update(id: string, patch: Partial<Proposal>): Promise<void> {
+    const p = this.get(id);
+    if (!p) throw new Error(`unknown proposal ${id}`);
+    Object.assign(p, patch);
+    await this.save();
+  }
+
   /** Consecutive approved/executed for a move node, newest first, broken by a rejection. */
   approvalStreak(moveNodeId: string): number {
     const decided = this.items

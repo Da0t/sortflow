@@ -84,6 +84,9 @@ export function registerIpc(
     await current.reject(id);
     onPending(pendingCount());
   });
+  ipcMain.handle("proposals:rename", (_evt, id: string, newName: string) =>
+    current.renameProposal(id, newName),
+  );
   ipcMain.handle("journal:list", () => current.listJournal());
   ipcMain.handle("journal:undo", (_evt, id: string) => current.undo(id));
   ipcMain.handle("streak:get", (_evt, moveNodeId: string) =>

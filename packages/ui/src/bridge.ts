@@ -11,6 +11,7 @@ export interface SortflowApi {
   listProposals(): Promise<Proposal[]>;
   approve(id: string): Promise<void>;
   reject(id: string): Promise<void>;
+  renameProposal(id: string, newName: string): Promise<Proposal>;
   listJournal(): Promise<JournalEntry[]>;
   undo(id: string): Promise<void>;
   approvalStreak(moveNodeId: string): Promise<number>;
@@ -66,6 +67,16 @@ function createMockApi(): SortflowApi {
       proposals = proposals.map((p) =>
         p.id === id ? { ...p, status: "rejected" as const } : p,
       );
+    },
+    async renameProposal(id, newName) {
+      proposals = proposals.map((p) =>
+        p.id === id && p.status === "pending"
+          ? { ...p, targetName: newName }
+          : p,
+      );
+      const renamed = proposals.find((p) => p.id === id);
+      if (!renamed) throw new Error(`unknown proposal ${id}`);
+      return renamed;
     },
     async listJournal() {
       return [];

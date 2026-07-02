@@ -1,5 +1,5 @@
 import type { Proposal } from "@sortflow/engine";
-import { ListChecks } from "lucide-react";
+import { ListChecks, Pencil } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../bridge";
 import { useFlowStore } from "../store";
@@ -9,6 +9,9 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export function ReviewTray() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string; draft: string } | null>(
+    null,
+  );
 
   const refresh = useCallback(async () => {
     setProposals(await api.listProposals());
@@ -16,7 +19,7 @@ export function ReviewTray() {
 
   // Run an action, then refresh, surfacing any failure instead of swallowing it.
   const guard = useCallback(
-    (action: Promise<void>) => {
+    (action: Promise<unknown>) => {
       setError(null);
       action.then(() => refresh()).catch((e: unknown) => setError(message(e)));
     },
@@ -37,6 +40,15 @@ export function ReviewTray() {
       offStuck();
     };
   }, [refresh]);
+
+  const commitRename = useCallback(() => {
+    if (!editing) return;
+    const name = editing.draft.trim();
+    const id = editing.id;
+    setEditing(null);
+    if (!name) return;
+    guard(api.renameProposal(id, name));
+  }, [editing, guard]);
 
   const pending = proposals.filter((p) => p.status === "pending");
   const failed = proposals.filter((p) => p.status === "failed");
@@ -74,27 +86,56 @@ export function ReviewTray() {
         </button>
       )}
       <ul>
-        {pending.map((p) => (
-          <li key={p.id}>
-            <span className="sf-proposal">
-              {p.fileName} → {p.destDir}
-            </span>
-            <button
-              type="button"
-              className="sf-btn-approve"
-              onClick={() => guard(api.approve(p.id))}
-            >
-              Approve
-            </button>
-            <button
-              type="button"
-              className="sf-btn-neutral"
-              onClick={() => guard(api.reject(p.id))}
-            >
-              Reject
-            </button>
-          </li>
-        ))}
+        {pending.map((p) => {
+          const shownName = p.targetName ?? p.fileName;
+          return (
+            <li key={p.id}>
+              {editing?.id === p.id ? (
+                <input
+                  className="sf-rename-input"
+                  aria-label={`New name for ${p.fileName}`}
+                  value={editing.draft}
+                  // biome-ignore lint/a11y/noAutofocus: input appears on explicit user action
+                  autoFocus
+                  onChange={(e) =>
+                    setEditing({ id: p.id, draft: e.target.value })
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    if (e.key === "Escape") setEditing(null);
+                  }}
+                  onBlur={() => setEditing(null)}
+                />
+              ) : (
+                <span className="sf-proposal">
+                  {shownName} → {p.destDir}
+                </span>
+              )}
+              <button
+                type="button"
+                className="sf-btn-icon"
+                aria-label={`Rename ${shownName}`}
+                onClick={() => setEditing({ id: p.id, draft: shownName })}
+              >
+                <Pencil size={13} strokeWidth={2} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="sf-btn-approve"
+                onClick={() => guard(api.approve(p.id))}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                className="sf-btn-neutral"
+                onClick={() => guard(api.reject(p.id))}
+              >
+                Reject
+              </button>
+            </li>
+          );
+        })}
         {failed.map((p) => (
           <li key={p.id} className="sf-failed">
             <span className="sf-status sf-status-failed">failed</span>

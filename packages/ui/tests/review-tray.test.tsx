@@ -38,3 +38,56 @@ describe("ReviewTray", () => {
     expect(screen.queryByRole("button", { name: /^approve$/i })).toBeNull();
   });
 });
+
+describe("ReviewTray: rename at review", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const base: Proposal = {
+    id: "r-1",
+    filePath: "/in/Screenshot 2026-06-30.png",
+    fileName: "Screenshot 2026-06-30.png",
+    destDir: "/out/Screenshots",
+    moveNodeId: "m1",
+    routeNodeIds: [],
+    createdAt: 1,
+    status: "pending",
+  };
+
+  it("renames a pending proposal via the pencil button and Enter", async () => {
+    let list: Proposal[] = [{ ...base }];
+    vi.spyOn(api, "listProposals").mockImplementation(async () => list);
+    const renameSpy = vi
+      .spyOn(api, "renameProposal")
+      .mockImplementation(async (id, name) => {
+        list = list.map((p) => (p.id === id ? { ...p, targetName: name } : p));
+        return list[0];
+      });
+    render(<ReviewTray />);
+    await waitFor(() =>
+      expect(screen.getByText(/Screenshot 2026-06-30\.png/)).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^rename/i }));
+    const input = screen.getByLabelText(/new name for/i) as HTMLInputElement;
+    expect(input.value).toBe("Screenshot 2026-06-30.png");
+    fireEvent.change(input, { target: { value: "vacation.png" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() =>
+      expect(renameSpy).toHaveBeenCalledWith("r-1", "vacation.png"),
+    );
+    await waitFor(() => expect(screen.getByText(/vacation\.png/)).toBeTruthy());
+  });
+
+  it("Escape cancels the rename without calling the api", async () => {
+    vi.spyOn(api, "listProposals").mockResolvedValue([{ ...base }]);
+    const renameSpy = vi.spyOn(api, "renameProposal");
+    render(<ReviewTray />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^rename/i })).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^rename/i }));
+    const input = screen.getByLabelText(/new name for/i);
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(renameSpy).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/new name for/i)).toBeNull();
+  });
+});

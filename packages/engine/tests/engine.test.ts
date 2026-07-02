@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Classifier } from "../src/classify";
 import { Engine } from "../src/engine";
+import { ProposalStore } from "../src/proposals";
 import type {
   FilterConfig,
   IncomingFile,
@@ -368,5 +369,254 @@ describe("Engine", () => {
     await sleep(800);
 
     expect(engine.listProposals()).toHaveLength(1);
+  }, 15_000);
+});
+
+describe("Engine: renamePattern", () => {
+  it("proposal.targetName contains expanded pattern + original extension", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sortflow-rename-pattern-"));
+    const inbox = join(root, "inbox");
+    const dest = join(root, "sorted");
+    await mkdir(inbox, { recursive: true });
+
+    const pipeline: Pipeline = {
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: inbox, recursive: false },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "f1",
+          kind: "filter",
+          config: { extensions: [".txt"] },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "m1",
+          kind: "move",
+          config: {
+            destination: dest,
+            auto: false,
+            renamePattern: "{fileYYYY}-{fileMM} {name}",
+          },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "w1", sourceHandle: "out", target: "f1" },
+        { id: "e2", source: "f1", sourceHandle: "match", target: "m1" },
+      ],
+    };
+
+    const neverClassify: Classifier = {
+      classify: async () => {
+        throw new Error("no classify");
+      },
+    };
+    engine = new Engine({
+      dataDir: join(root, "data"),
+      classifier: neverClassify,
+      watcherOptions: FAST,
+      now: () => new Date(2026, 6, 1).getTime(),
+    });
+    await engine.start(pipeline);
+    await sleep(300);
+
+    const proposalP = nextProposal(engine);
+    await writeFile(join(inbox, "report.txt"), "hi");
+    const proposal = await proposalP;
+
+    // targetName should be "YYYY-MM report.txt"
+    expect(proposal.targetName).toMatch(/^\d{4}-\d{2} report\.txt$/);
+  }, 15_000);
+
+  it("after approve, file exists at dest under the targetName", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sortflow-rename-approve-"));
+    const inbox = join(root, "inbox");
+    const dest = join(root, "sorted");
+    await mkdir(inbox, { recursive: true });
+
+    const pipeline: Pipeline = {
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: inbox, recursive: false },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "f1",
+          kind: "filter",
+          config: { extensions: [".txt"] },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "m1",
+          kind: "move",
+          config: {
+            destination: dest,
+            auto: false,
+            renamePattern: "archived-{name}",
+          },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "w1", sourceHandle: "out", target: "f1" },
+        { id: "e2", source: "f1", sourceHandle: "match", target: "m1" },
+      ],
+    };
+
+    const neverClassify: Classifier = {
+      classify: async () => {
+        throw new Error("no classify");
+      },
+    };
+    engine = new Engine({
+      dataDir: join(root, "data"),
+      classifier: neverClassify,
+      watcherOptions: FAST,
+    });
+    await engine.start(pipeline);
+    await sleep(300);
+
+    const proposalP = nextProposal(engine);
+    await writeFile(join(inbox, "note.txt"), "hello");
+    const proposal = await proposalP;
+
+    expect(proposal.targetName).toBe("archived-note.txt");
+    await engine.approve(proposal.id);
+    expect(existsSync(join(dest, "archived-note.txt"))).toBe(true);
+    expect(existsSync(join(inbox, "note.txt"))).toBe(false);
+  }, 15_000);
+});
+
+describe("Engine: renameProposal", () => {
+  it("renames a pending proposal and persists across store reload", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sortflow-rename-proposal-"));
+    const inbox = join(root, "inbox");
+    const dest = join(root, "sorted");
+    await mkdir(inbox, { recursive: true });
+
+    const pipeline: Pipeline = {
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: inbox, recursive: false },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "f1",
+          kind: "filter",
+          config: { extensions: [".txt"] },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "m1",
+          kind: "move",
+          config: { destination: dest, auto: false },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "w1", sourceHandle: "out", target: "f1" },
+        { id: "e2", source: "f1", sourceHandle: "match", target: "m1" },
+      ],
+    };
+    const neverClassify: Classifier = {
+      classify: async () => {
+        throw new Error("no classify");
+      },
+    };
+    engine = new Engine({
+      dataDir: join(root, "data"),
+      classifier: neverClassify,
+      watcherOptions: FAST,
+    });
+    await engine.start(pipeline);
+    await sleep(300);
+
+    const proposalP = nextProposal(engine);
+    await writeFile(join(inbox, "note.txt"), "content");
+    const proposal = await proposalP;
+
+    await engine.renameProposal(proposal.id, "new-name.txt");
+    expect(
+      engine.listProposals().find((p) => p.id === proposal.id)?.targetName,
+    ).toBe("new-name.txt");
+
+    // persists: reload the store from disk
+    const store2 = new ProposalStore(join(root, "data", "proposals.json"));
+    await store2.load();
+    expect(store2.get(proposal.id)?.targetName).toBe("new-name.txt");
+  }, 15_000);
+
+  it("renameProposal strips illegal chars and preserves original extension", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sortflow-rename-sanitize-"));
+    engine = new Engine({ dataDir: join(root, "data") });
+    const p = await engine.proposalStore.add(
+      {
+        filePath: "/in/report.pdf",
+        fileName: "report.pdf",
+        destDir: "/out",
+        moveNodeId: "m1",
+        routeNodeIds: [],
+      },
+      1,
+    );
+    // illegal chars stripped; extension forced back to .pdf
+    await engine.renameProposal(p.id, "my/file.docx");
+    expect(engine.listProposals().find((x) => x.id === p.id)?.targetName).toBe(
+      "myfile.pdf",
+    );
+  }, 15_000);
+
+  it("renameProposal no-ops on non-pending proposals", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sortflow-rename-noop-"));
+    engine = new Engine({ dataDir: join(root, "data") });
+    const p = await engine.proposalStore.add(
+      {
+        filePath: "/in/note.txt",
+        fileName: "note.txt",
+        destDir: "/out",
+        moveNodeId: "m1",
+        routeNodeIds: [],
+      },
+      1,
+    );
+    await engine.proposalStore.setStatus(p.id, "executed");
+    await engine.renameProposal(p.id, "changed.txt"); // should be silently ignored
+    expect(
+      engine.listProposals().find((x) => x.id === p.id)?.targetName,
+    ).toBeUndefined();
+  }, 15_000);
+
+  it("after renameProposal then approve, file moves under new name", async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), "sortflow-rename-approve-manual-"),
+    );
+    const src = join(root, "in");
+    const dest = join(root, "out");
+    await mkdir(src, { recursive: true });
+    await writeFile(join(src, "note.txt"), "hello");
+
+    engine = new Engine({ dataDir: join(root, "data") });
+    const p = await engine.proposalStore.add(
+      {
+        filePath: join(src, "note.txt"),
+        fileName: "note.txt",
+        destDir: dest,
+        moveNodeId: "m1",
+        routeNodeIds: [],
+      },
+      1,
+    );
+    await engine.renameProposal(p.id, "renamed.txt");
+    await engine.approve(p.id);
+    expect(existsSync(join(dest, "renamed.txt"))).toBe(true);
+    expect(existsSync(join(src, "note.txt"))).toBe(false);
   }, 15_000);
 });

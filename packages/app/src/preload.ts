@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("sortflow", {
   listProposals: () => ipcRenderer.invoke("proposals:list"),
   approve: (id: string) => ipcRenderer.invoke("proposals:approve", id),
   reject: (id: string) => ipcRenderer.invoke("proposals:reject", id),
+  renameProposal: (id: string, newName: string) =>
+    ipcRenderer.invoke("proposals:rename", id, newName),
   listJournal: () => ipcRenderer.invoke("journal:list"),
   undo: (id: string) => ipcRenderer.invoke("journal:undo", id),
   approvalStreak: (moveNodeId: string) =>
