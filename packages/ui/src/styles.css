@@ -212,42 +212,49 @@ body {
 .sf-bubble {
   display: flex;
   align-items: center;
-  gap: 6px;
-  max-width: 150px;
-  padding: 6px 13px;
-  border: 1px solid var(--sf-border);
+  gap: 7px;
+  max-width: 190px;
+  padding: 8px 16px;
+  border: 1.5px solid #c3d4f7;
   border-radius: 999px;
-  background: var(--sf-surface);
+  background: #fbfdff;
   color: var(--sf-text);
-  font-size: 12px;
-  font-weight: 550;
-  box-shadow: var(--sf-shadow);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.1);
   cursor: pointer;
+}
+
+.sf-bubble > svg {
+  color: var(--sf-watch);
+  flex-shrink: 0;
 }
 
 .sf-bubble:hover {
   border-color: var(--sf-primary);
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.18);
 }
 
 .sf-bubble-root {
   border-color: var(--sf-primary);
+  background: var(--sf-primary-soft);
   cursor: default;
 }
 
 .sf-bubble-count {
-  padding: 0 6px;
+  padding: 1px 8px;
   border-radius: 999px;
-  background: var(--sf-primary-soft);
-  color: var(--sf-primary);
-  font-size: 10px;
+  background: var(--sf-primary);
+  color: #ffffff;
+  font-size: 11px;
   font-weight: 600;
 }
 
 /* Bubble actions (new folder / trash) — revealed on hover. */
 .sf-bubble-actions {
   display: flex;
-  gap: 2px;
-  opacity: 0;
+  gap: 3px;
+  opacity: 0.35;
   transition: opacity 120ms ease;
 }
 
@@ -262,6 +269,11 @@ body {
   padding: 2px;
   cursor: pointer;
   color: var(--sf-text-muted);
+}
+
+.sf-bubble-actions button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .sf-bubble-actions button:hover {
@@ -286,19 +298,24 @@ body {
 .sf-chipnode {
   display: flex;
   align-items: center;
-  gap: 4px;
-  max-width: 110px;
-  padding: 2px 8px;
-  border: 1px dashed var(--sf-border);
+  gap: 5px;
+  max-width: 130px;
+  padding: 4px 11px;
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
   background: var(--sf-surface);
-  color: var(--sf-text-muted);
-  font-size: 10.5px;
+  color: var(--sf-text);
+  font-size: 11.5px;
+  box-shadow: var(--sf-shadow);
   cursor: grab;
 }
 
+.sf-chipnode > svg {
+  color: var(--sf-text-muted);
+  flex-shrink: 0;
+}
+
 .sf-chipnode:hover {
-  color: var(--sf-text);
   border-color: var(--sf-primary);
 }
 

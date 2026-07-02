@@ -27,11 +27,11 @@ import { useFlowStore } from "../store";
 
 const HOME = "~";
 const MAX_CHIPS = 8;
-const BUBBLE_W = 150;
-const LEVEL_H = 120;
-const SIB_GAP = 24;
-const CHIP_W = 110;
-const CHIP_FAN_Y = 84;
+const BUBBLE_W = 190;
+const LEVEL_H = 175;
+const SIB_GAP = 48;
+const CHIP_W = 130;
+const CHIP_FAN_Y = 88;
 
 type BubbleData = {
   path: string;
@@ -430,14 +430,19 @@ export function FilesView() {
         : contents;
       const chips = hidden.slice(0, MAX_CHIPS);
       const n = chips.length;
+      const perRow = Math.ceil(n / 2);
       chips.forEach((entry, i) => {
-        const offset = (i - (n - 1) / 2) * (CHIP_W + 12);
+        // Two staggered rows so a full fan stays compact and readable.
+        const row = i % 2;
+        const col = Math.floor(i / 2);
+        const rowCount = row === 0 ? perRow : n - perRow;
+        const offset = (col - (rowCount - 1) / 2) * (CHIP_W + 18);
         nodes.push({
           id: `chip:${entry.path}`,
           type: "chip",
           position: {
             x: hoveredNode.position.x + BUBBLE_W / 2 + offset - CHIP_W / 2,
-            y: hoveredNode.position.y + CHIP_FAN_Y,
+            y: hoveredNode.position.y + CHIP_FAN_Y + row * 38,
           },
           draggable: false,
           data: {
@@ -468,7 +473,7 @@ export function FilesView() {
         type: "creator",
         position: {
           x: creatorParent.position.x + BUBBLE_W / 2 - CHIP_W / 2,
-          y: creatorParent.position.y - CHIP_FAN_Y,
+          y: creatorParent.position.y + CHIP_FAN_Y,
         },
         draggable: false,
         data: {
@@ -557,6 +562,9 @@ export function FilesView() {
             nodesDraggable={false}
             nodesConnectable={false}
             edgesFocusable={false}
+            defaultEdgeOptions={{
+              style: { stroke: "#94a3b8", strokeWidth: 1.6 },
+            }}
             fitView
             minZoom={0.15}
           >
