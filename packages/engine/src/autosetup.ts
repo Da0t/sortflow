@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { readdir } from "node:fs/promises";
 import os from "node:os";
 import type { FilterConfig, MoveConfig, Pipeline, WatchConfig } from "./types";
@@ -131,7 +132,7 @@ export async function scanFolder(
   const counts = new Map<string, number>();
   let total = 0;
 
-  let entries: Awaited<ReturnType<typeof readdir>>;
+  let entries: Dirent[];
   try {
     entries = await readdir(dirPath, { withFileTypes: true });
   } catch {

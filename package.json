@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "test": "pnpm -r test",
-    "check": "biome check ."
+    "check": "biome check .",
+    "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4"

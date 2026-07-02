@@ -21,6 +21,9 @@ importers:
       '@sortflow/engine':
         specifier: workspace:*
         version: link:../engine
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.0
       electron:
         specifier: ^37.0.0
         version: 37.10.3

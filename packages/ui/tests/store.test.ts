@@ -60,6 +60,7 @@ describe("store: replaceEdge", () => {
       source: "w1",
       sourceHandle: "out",
       target: "m1",
+      targetHandle: null,
     });
     const pipeline = useFlowStore.getState().toPipeline();
     const edge = pipeline.edges.find((e) => e.id === "e1");
@@ -75,6 +76,7 @@ describe("store: replaceEdge", () => {
       source: "w1",
       sourceHandle: "out",
       target: "m1",
+      targetHandle: null,
     });
     const pipeline = useFlowStore.getState().toPipeline();
     expect(pipeline.edges).toHaveLength(2);
@@ -86,6 +88,7 @@ describe("store: replaceEdge", () => {
       source: "f1",
       sourceHandle: "match",
       target: "m1",
+      targetHandle: null,
     });
     const pipeline = useFlowStore.getState().toPipeline();
     const edge = pipeline.edges.find((e) => e.id === "e1");

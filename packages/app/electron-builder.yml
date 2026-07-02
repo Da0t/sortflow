@@ -10,4 +10,5 @@ extraResources:
     to: ui
 mac:
   target: dmg
+  icon: build/icon.icns
   category: public.app-category.productivity
