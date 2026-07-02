@@ -98,6 +98,20 @@ describe("OllamaClassifier", () => {
     expect(await cBad.classify(await tempFile("x.pdf", ""), cfg)).toBe(UNSURE);
   });
 
+  it("returns unsure when the request never resolves (timeout aborts it)", async () => {
+    const hanging = vi.fn(
+      (_url: string, init?: { signal?: AbortSignal }) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("timed out", "TimeoutError")),
+          );
+        }),
+    ) as unknown as typeof fetch;
+    // 10ms timeout keeps the test fast while proving the abort path routes to unsure.
+    const c = new OllamaClassifier("http://x", hanging, 10);
+    expect(await c.classify(await tempFile("x.pdf", ""), cfg)).toBe(UNSURE);
+  });
+
   it("ping reports reachability", async () => {
     const up = new OllamaClassifier(
       "http://x",

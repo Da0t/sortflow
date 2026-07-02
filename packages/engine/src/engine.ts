@@ -41,6 +41,8 @@ export class Engine extends EventEmitter {
   /** Serializes every file move (approve + undo) so two moves can never run
    * concurrently and race the unique-destination check into an overwrite. */
   private moveChain: Promise<unknown> = Promise.resolve();
+  /** Set by stop(); drops watcher work that arrives during a hot-swap. */
+  private stopped = false;
 
   constructor(opts: EngineOptions) {
     super();
@@ -51,9 +53,15 @@ export class Engine extends EventEmitter {
     );
     this.classifier = opts.classifier ?? new OllamaClassifier();
     this.queue = new ClassifyQueue(this.classifier, opts.cooldownMs ?? 2000);
-    this.watcher = new FolderWatcher((nodeId, file) => {
-      void this.handleFile(nodeId, file);
-    }, opts.watcherOptions);
+    this.watcher = new FolderWatcher(
+      (nodeId, file) => {
+        void this.handleFile(nodeId, file);
+      },
+      opts.watcherOptions,
+      (nodeId, err) => {
+        this.emit("nodeStatus", nodeId, "error", err.message);
+      },
+    );
   }
 
   async start(pipeline: Pipeline): Promise<void> {
@@ -90,7 +98,11 @@ export class Engine extends EventEmitter {
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
     await this.watcher.close();
+    // Drain any in-flight move so a hot-swap does not leave a move executing
+    // against a discarded engine. moveChain never rejects (see runExclusive).
+    await this.moveChain;
   }
 
   /** Runs a move exclusively: waits for any in-flight move (success or failure)
@@ -109,35 +121,44 @@ export class Engine extends EventEmitter {
     watchNodeId: string,
     file: IncomingFile,
   ): Promise<void> {
-    const route = await routeFile(
-      this.pipeline,
-      watchNodeId,
-      file,
-      (f, cfg) => this.queue.enqueue(f, cfg),
-      this.now(),
-    );
-    if (!route.moveNodeId) return;
-    const moveNode = nodeById(this.pipeline, route.moveNodeId);
-    if (!moveNode) return;
-    const cfg = moveNode.config as MoveConfig;
-    const destDir = expandDestination(cfg.destination, {
-      category: route.category,
-      date: new Date(this.now()),
-      ext: file.ext,
-      home: homedir(),
-    });
-    const proposal = await this.proposalStore.add(
-      {
-        filePath: file.path,
-        fileName: file.name,
-        destDir,
-        moveNodeId: route.moveNodeId,
-        routeNodeIds: route.nodePath,
-      },
-      this.now(),
-    );
-    this.emit("proposal", proposal);
-    if (cfg.auto) await this.approve(proposal.id);
+    if (this.stopped) return;
+    try {
+      const route = await routeFile(
+        this.pipeline,
+        watchNodeId,
+        file,
+        (f, cfg) => this.queue.enqueue(f, cfg),
+        this.now(),
+      );
+      if (!route.moveNodeId) return;
+      const moveNode = nodeById(this.pipeline, route.moveNodeId);
+      if (!moveNode) return;
+      const cfg = moveNode.config as MoveConfig;
+      const destDir = expandDestination(cfg.destination, {
+        category: route.category,
+        date: new Date(this.now()),
+        ext: file.ext,
+        home: homedir(),
+      });
+      const proposal = await this.proposalStore.add(
+        {
+          filePath: file.path,
+          fileName: file.name,
+          destDir,
+          moveNodeId: route.moveNodeId,
+          routeNodeIds: route.nodePath,
+        },
+        this.now(),
+      );
+      this.emit("proposal", proposal);
+      if (cfg.auto) await this.approve(proposal.id);
+    } catch (err) {
+      // A routing failure (e.g. a bad user-typed regex that slipped past
+      // validation) must never become an unhandled rejection that kills the
+      // process — surface it on the originating watch node instead.
+      const message = err instanceof Error ? err.message : String(err);
+      this.emit("nodeStatus", watchNodeId, "error", message);
+    }
   }
 
   async approve(proposalId: string): Promise<void> {

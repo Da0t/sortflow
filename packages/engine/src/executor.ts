@@ -92,6 +92,9 @@ export async function undoMove(
     dirname(latest.from),
     basename(latest.from),
   );
+  // The original directory may have been deleted since the move — recreate it
+  // so undo restores the file instead of failing with ENOENT.
+  await mkdir(dirname(backTo), { recursive: true });
   await moveWithFallback(latest.to, backTo, opts.renameFn);
   const undone: JournalEntry = { ...latest, ts: now(), status: "undone" };
   await journal.append(undone);

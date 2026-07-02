@@ -14,6 +14,7 @@ export class FolderWatcher {
   constructor(
     private onFile: (watchNodeId: string, file: IncomingFile) => void,
     private options: WatcherOptions = {},
+    private onError?: (nodeId: string, err: Error) => void,
   ) {}
 
   watch(nodeId: string, cfg: WatchConfig): void {
@@ -39,9 +40,13 @@ export class FolderWatcher {
         // file vanished between event and stat — nothing to do
       }
     });
-    w.on("error", (_err: unknown) => {
-      // swallow filesystem errors (e.g. watched directory deleted or permission
-      // denied) so the process does not crash on an unhandled 'error' event
+    w.on("error", (err: unknown) => {
+      // Consuming the 'error' event prevents an unhandled-error crash; forwarding
+      // it (watched dir deleted, permission denied) makes the failure visible.
+      this.onError?.(
+        nodeId,
+        err instanceof Error ? err : new Error(String(err)),
+      );
     });
     this.watchers.push(w);
   }

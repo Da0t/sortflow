@@ -1,5 +1,6 @@
 import type {
   ClassifyConfig,
+  FilterConfig,
   Pipeline,
   PipelineEdge,
   PipelineNode,
@@ -19,6 +20,20 @@ export function validatePipeline(p: Pipeline): string[] {
   for (const n of p.nodes) {
     if (byId.has(n.id)) problems.push(`duplicate node id: ${n.id}`);
     byId.set(n.id, n);
+    if (n.kind === "filter") {
+      const cfg = n.config as FilterConfig;
+      if (cfg.regex && cfg.namePattern) {
+        try {
+          new RegExp(cfg.namePattern);
+        } catch (err) {
+          problems.push(
+            `node ${n.id}: invalid regex '${cfg.namePattern}': ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }
+    }
   }
   const seenHandles = new Set<string>();
   for (const e of p.edges) {

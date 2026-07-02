@@ -5,7 +5,12 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Classifier } from "../src/classify";
 import { Engine } from "../src/engine";
-import type { Pipeline, Proposal } from "../src/types";
+import type {
+  FilterConfig,
+  IncomingFile,
+  Pipeline,
+  Proposal,
+} from "../src/types";
 
 const FAST = { stabilityThreshold: 200, pollInterval: 50 };
 let engine: Engine | undefined;
@@ -150,6 +155,42 @@ describe("Engine", () => {
       await Promise.all(names.map((n) => readFile(join(dest, n), "utf8"))),
     );
     expect(contents).toEqual(new Set(["AAA", "BBB"]));
+  }, 15_000);
+
+  it("a routing error surfaces as nodeStatus error instead of crashing", async () => {
+    const { inbox, pipeline, engine } = await setup(false);
+    await engine.start(pipeline); // valid glob filter passes validation
+    await sleep(300);
+
+    // Corrupt the live filter into an invalid regex, simulating a bad config
+    // that slipped past validation (the engine holds the pipeline by reference).
+    const f1 = pipeline.nodes.find((n) => n.id === "f1");
+    const cfg = (f1 as { config: FilterConfig }).config;
+    cfg.regex = true;
+    cfg.namePattern = "[";
+
+    const errored = new Promise<{ id: string; level: string }>((resolve) => {
+      engine.on("nodeStatus", (id: string, level: string) => {
+        if (level === "error") resolve({ id, level });
+      });
+    });
+    const file: IncomingFile = {
+      path: join(inbox, "note.txt"),
+      name: "note.txt",
+      ext: ".txt",
+      bytes: 1,
+      mtimeMs: 0,
+    };
+    await (
+      engine as unknown as {
+        handleFile(id: string, f: IncomingFile): Promise<void>;
+      }
+    ).handleFile("w1", file);
+
+    const evt = await errored;
+    expect(evt.id).toBe("w1");
+    expect(evt.level).toBe("error");
+    expect(engine.listProposals()).toHaveLength(0);
   }, 15_000);
 
   it("non-matching files dead-end untouched", async () => {

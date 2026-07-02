@@ -36,11 +36,16 @@ export class OllamaClassifier implements Classifier {
   constructor(
     private baseUrl = "http://127.0.0.1:11434",
     private fetchFn: typeof fetch = fetch,
+    // A hung Ollama must not stall the serialized classify queue forever.
+    private timeoutMs = 30_000,
+    private pingTimeoutMs = 3_000,
   ) {}
 
   async ping(): Promise<boolean> {
     try {
-      const res = await this.fetchFn(`${this.baseUrl}/api/tags`);
+      const res = await this.fetchFn(`${this.baseUrl}/api/tags`, {
+        signal: AbortSignal.timeout(this.pingTimeoutMs),
+      });
       return res.ok;
     } catch {
       return false;
@@ -71,6 +76,7 @@ export class OllamaClassifier implements Classifier {
           format: "json",
           options: { temperature: 0 },
         }),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!res.ok) return UNSURE;
       const data = (await res.json()) as { message?: { content?: string } };

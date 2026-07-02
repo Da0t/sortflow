@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -101,5 +101,18 @@ describe("undoMove", () => {
   it("refuses to undo entries that are not done", async () => {
     const { journal } = await setup();
     await expect(undoMove("ghost", journal)).rejects.toThrow(/cannot undo/);
+  });
+
+  it("recreates a deleted source directory when undoing", async () => {
+    const { src, dst, journal, from } = await setup();
+    const done = await executeMove(
+      { id: "j1", from, toDir: dst, moveNodeId: "m1" },
+      journal,
+    );
+    await rm(src, { recursive: true, force: true }); // original dir is gone
+    const undone = await undoMove("j1", journal);
+    expect(undone.status).toBe("undone");
+    expect(existsSync(from)).toBe(true); // dir recreated, file restored
+    expect(existsSync(done.to)).toBe(false);
   });
 });

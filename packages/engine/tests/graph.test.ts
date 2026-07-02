@@ -110,6 +110,28 @@ describe("validatePipeline", () => {
     expect(validatePipeline(p).length).toBeGreaterThan(0);
   });
 
+  it("rejects a filter node whose regex namePattern is invalid", () => {
+    const p: Pipeline = {
+      ...valid,
+      nodes: valid.nodes.map((n) =>
+        n.id === "f1" ? { ...n, config: { namePattern: "[", regex: true } } : n,
+      ),
+    };
+    expect(validatePipeline(p).join()).toContain("invalid regex '['");
+  });
+
+  it("accepts a valid regex namePattern", () => {
+    const p: Pipeline = {
+      ...valid,
+      nodes: valid.nodes.map((n) =>
+        n.id === "f1"
+          ? { ...n, config: { namePattern: "^report.*\\.pdf$", regex: true } }
+          : n,
+      ),
+    };
+    expect(validatePipeline(p)).toEqual([]);
+  });
+
   it("rejects cycles", () => {
     const p: Pipeline = {
       nodes: [
