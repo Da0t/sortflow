@@ -30,10 +30,12 @@ import { useFlowStore } from "../store";
 const HOME = "~";
 const MAX_CHIPS = 8;
 const BUBBLE_W = 190;
-const LEVEL_H = 175;
-const SIB_GAP = 48;
-const CHIP_W = 130;
-const CHIP_FAN_Y = 88;
+/** Outline layout: children stack vertically, indented one step right. */
+const INDENT = 90;
+const ROW_H = 58;
+/** Hover chips: a column to the right of the bubble. */
+const CHIP_X_GAP = 70;
+const CHIP_ROW_H = 34;
 
 const HIDDEN_KEY = "sf-files-hidden-kinds";
 
@@ -230,7 +232,7 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
       }}
       onDrop={(e) => data.onDropInto(data.path, e)}
     >
-      {!data.isRoot && <Handle type="target" position={Position.Top} />}
+      {!data.isRoot && <Handle type="target" position={Position.Left} />}
       {data.isRoot ? (
         <House size={13} strokeWidth={2} aria-hidden="true" />
       ) : (
@@ -290,15 +292,16 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
         )}
       </span>
       <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Right} id="side" />
     </div>
   );
 }
 
-/** Inline input node for naming a new folder, wired under its parent. */
+/** Inline input node for naming a new folder, wired beside its parent. */
 function CreatorNode({ data }: NodeProps<Node<CreatorData, "creator">>) {
   return (
     <div className="sf-chipnode sf-creator">
-      <Handle type="target" position={Position.Top} />
+      <Handle type="target" position={Position.Left} />
       <FolderPlus size={11} strokeWidth={2} aria-hidden="true" />
       <input
         className="nodrag"
@@ -353,7 +356,7 @@ function ChipNode({ data }: NodeProps<Node<ChipData, "chip">>) {
         entry.isDirectory ? (e) => data.onDropInto(entry.path, e) : undefined
       }
     >
-      <Handle type="target" position={Position.Top} />
+      <Handle type="target" position={Position.Left} />
       {entry.isDirectory ? (
         <Folder size={11} strokeWidth={2} aria-hidden="true" />
       ) : (
@@ -570,30 +573,19 @@ export function FilesView() {
     const nodes: AnyNode[] = [];
     const edges: Edge[] = [];
 
-    // Subtree width of the pinned-folder tree.
-    const width = (path: string): number => {
-      if (!pinned.has(path)) return BUBBLE_W;
-      const kids = folderChildren(path).filter(
-        (k) => showHidden || !hiddenPaths.has(k.path),
-      );
-      if (kids.length === 0) return BUBBLE_W;
-      const total =
-        kids.reduce((sum, k) => sum + width(k.path), 0) +
-        SIB_GAP * (kids.length - 1);
-      return Math.max(BUBBLE_W, total);
-    };
-
+    // Outline layout: every bubble takes one row; children stack vertically
+    // beneath their parent, indented one step right.
+    let row = 0;
     const place = (
       path: string,
       name: string,
       isRoot: boolean,
-      xCenter: number,
       depth: number,
     ) => {
       nodes.push({
         id: path,
         type: "bubble",
-        position: { x: xCenter - BUBBLE_W / 2, y: depth * LEVEL_H },
+        position: { x: depth * INDENT, y: row * ROW_H },
         draggable: false,
         data: {
           path,
@@ -611,19 +603,17 @@ export function FilesView() {
           dropTarget,
         },
       });
+      row++;
       if (!pinned.has(path)) return;
       const kids = folderChildren(path).filter(
         (k) => showHidden || !hiddenPaths.has(k.path),
       );
-      let x = xCenter - width(path) / 2;
       for (const kid of kids) {
-        const w = width(kid.path);
-        place(kid.path, kid.name, false, x + w / 2, depth + 1);
         edges.push({ id: `e-${kid.path}`, source: path, target: kid.path });
-        x += w + SIB_GAP;
+        place(kid.path, kid.name, false, depth + 1);
       }
     };
-    place(HOME, "Home", true, 0, 0);
+    place(HOME, "Home", true, 0);
 
     // Hover preview: fan the hovered folder's hidden contents out as chips.
     const hoveredNode = hovered
@@ -638,21 +628,17 @@ export function FilesView() {
       ).filter((e) => !e.isDirectory || showHidden || !hiddenPaths.has(e.path));
       const chips = fanContents.slice(0, MAX_CHIPS);
       const n = chips.length;
-      const perRow = Math.ceil(n / 2);
       chips.forEach((entry, i) => {
-        // Two staggered rows so a full fan stays compact and readable.
-        const row = i % 2;
-        const col = Math.floor(i / 2);
-        const rowCount = row === 0 ? perRow : n - perRow;
-        const offset = (col - (rowCount - 1) / 2) * (CHIP_W + 18);
+        // A vertical column beside the bubble, centered on it.
         nodes.push({
           id: `chip:${entry.path}`,
           type: "chip",
           position: {
-            x: hoveredNode.position.x + BUBBLE_W / 2 + offset - CHIP_W / 2,
-            y: hoveredNode.position.y + CHIP_FAN_Y + row * 38,
+            x: hoveredNode.position.x + BUBBLE_W + CHIP_X_GAP,
+            y: hoveredNode.position.y + (i - (n - 1) / 2) * CHIP_ROW_H,
           },
           draggable: false,
+          zIndex: 10,
           data: {
             entry,
             parentPath: hovered,
@@ -665,6 +651,7 @@ export function FilesView() {
         edges.push({
           id: `ce-${entry.path}`,
           source: hovered,
+          sourceHandle: "side",
           target: `chip:${entry.path}`,
           style: { strokeDasharray: "4 3" },
         });
@@ -680,10 +667,11 @@ export function FilesView() {
         id: "creator",
         type: "creator",
         position: {
-          x: creatorParent.position.x + BUBBLE_W / 2 - CHIP_W / 2,
-          y: creatorParent.position.y + CHIP_FAN_Y,
+          x: creatorParent.position.x + BUBBLE_W + CHIP_X_GAP,
+          y: creatorParent.position.y,
         },
         draggable: false,
+        zIndex: 10,
         data: {
           parentName:
             creatingIn === HOME
@@ -698,6 +686,7 @@ export function FilesView() {
       edges.push({
         id: "creator-edge",
         source: creatingIn,
+        sourceHandle: "side",
         target: "creator",
         style: { strokeDasharray: "4 3" },
       });
@@ -809,6 +798,8 @@ export function FilesView() {
             defaultEdgeOptions={{
               style: { stroke: "#94a3b8", strokeWidth: 1.6 },
             }}
+            panOnScroll
+            zoomOnScroll={false}
             fitView
             minZoom={0.15}
           >
