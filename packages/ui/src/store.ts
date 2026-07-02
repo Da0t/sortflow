@@ -41,6 +41,9 @@ interface FlowState {
    * (pending destinations are re-pointed on every engine restart). */
   refreshTick: number;
   bumpRefresh(): void;
+  /** Which main view is showing: the pipeline canvas or the Files mover. */
+  view: "canvas" | "files";
+  setView(view: "canvas" | "files"): void;
   setSelected(id: string | null): void;
   onNodesChange(changes: NodeChange<FlowNode>[]): void;
   onEdgesChange(changes: EdgeChange[]): void;
@@ -70,6 +73,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   toggleFocusMode: () => set({ focusMode: !get().focusMode }),
   refreshTick: 0,
   bumpRefresh: () => set({ refreshTick: get().refreshTick + 1 }),
+  view: "canvas",
+  setView: (view) => set({ view }),
   setSelected: (id) => set({ selectedId: id }),
   onNodesChange: (changes) =>
     set({ nodes: applyNodeChanges(changes, get().nodes) }),

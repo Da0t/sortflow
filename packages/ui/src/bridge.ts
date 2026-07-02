@@ -14,6 +14,13 @@ export interface FolderEntry {
   hasChildren: boolean;
 }
 
+/** One file-or-folder entry in the Files page browser (see listEntries). */
+export interface FsEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
+
 export interface SortflowApi {
   getPipeline(): Promise<Pipeline>;
   setPipeline(
@@ -56,6 +63,10 @@ export interface SortflowApi {
   getPathForFile(file: File): string;
   isDirectory(path: string): Promise<boolean>;
   listFolders(path?: string): Promise<FolderEntry[]>;
+  /** Folders-first listing (files included) for the Files page. */
+  listEntries(path: string): Promise<FsEntry[]>;
+  /** Journaled manual move of a file or folder into destDir. */
+  moveEntry(from: string, destDir: string): Promise<{ error: string | null }>;
   listPipelines(): Promise<PipelineLibrarySummary>;
   /** Switch the editor to pipeline `id`; `draft` stashes the current canvas. */
   switchPipeline(
@@ -287,6 +298,22 @@ function createMockApi(): SortflowApi {
     },
     async listFolders(path?: string) {
       return MOCK_FOLDER_TREE[path ?? "~"] ?? [];
+    },
+    async listEntries(path: string) {
+      const folders = (MOCK_FOLDER_TREE[path] ?? MOCK_FOLDER_TREE["~"]).map(
+        (f) => ({ name: f.name, path: f.path, isDirectory: true }),
+      );
+      return [
+        ...folders,
+        {
+          name: "demo-notes.txt",
+          path: `${path}/demo-notes.txt`,
+          isDirectory: false,
+        },
+      ];
+    },
+    async moveEntry(_from: string, _destDir: string) {
+      return { error: null };
     },
     async listPipelines() {
       return summary();

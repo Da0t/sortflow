@@ -306,6 +306,18 @@ export class Engine extends EventEmitter {
     );
   }
 
+  /** Manual move from the Files page: journaled and undoable like any
+   * pipeline move, and serialized with them so nothing races. */
+  async moveManually(from: string, destDir: string): Promise<JournalEntry> {
+    return this.runExclusive(() =>
+      executeMove(
+        { id: randomUUID(), from, toDir: destDir, moveNodeId: "manual" },
+        this.journal,
+        { now: this.now },
+      ),
+    );
+  }
+
   /** Undo every completed move in the journal, newest first. Moves that can
    * no longer be reversed (file renamed or deleted by hand) are skipped.
    * Returns how many were undone. */

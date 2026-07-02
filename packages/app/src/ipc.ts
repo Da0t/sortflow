@@ -1,6 +1,6 @@
 import { readdir, stat } from "node:fs/promises";
 import os from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   Engine,
   OllamaGenerator,
@@ -256,6 +256,46 @@ export function registerIpc(
       return (await stat(path)).isDirectory();
     } catch {
       return false;
+    }
+  });
+
+  ipcMain.handle("fs:listEntries", async (_evt, path: string) => {
+    const base = path.replace(/^~/, os.homedir());
+    try {
+      const entries = await readdir(base, { withFileTypes: true });
+      return entries
+        .filter(
+          (d) => !d.name.startsWith(".") && (d.isDirectory() || d.isFile()),
+        )
+        .map((d) => ({
+          name: d.name,
+          path: join(base, d.name),
+          isDirectory: d.isDirectory(),
+        }))
+        .sort(
+          (a, b) =>
+            Number(b.isDirectory) - Number(a.isDirectory) ||
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        );
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle("files:move", async (_evt, from: string, destDir: string) => {
+    const src = from.replace(/^~/, os.homedir());
+    const dest = destDir.replace(/^~/, os.homedir());
+    if (dest === src || dest.startsWith(`${src}/`)) {
+      return { error: "Can't move a folder into itself" };
+    }
+    if (dirname(src) === dest) {
+      return { error: null }; // already there — nothing to do
+    }
+    try {
+      await current.moveManually(src, dest);
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
     }
   });
 

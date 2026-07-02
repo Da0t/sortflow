@@ -2,6 +2,7 @@ import type { JournalEntry, Proposal } from "@sortflow/engine";
 import { History } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../bridge";
+import { useFlowStore } from "../store";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -29,6 +30,15 @@ export function HistoryPanel() {
     refresh().catch((e: unknown) => setError(message(e)));
     return api.onExecuted((_p: Proposal) => void refresh());
   }, [refresh]);
+
+  // Manual moves from the Files page bump the shared tick instead of
+  // emitting engine events.
+  const refreshTick = useFlowStore((s) => s.refreshTick);
+  useEffect(() => {
+    if (refreshTick > 0) {
+      refresh().catch((e: unknown) => setError(message(e)));
+    }
+  }, [refresh, refreshTick]);
 
   const doneCount = entries.filter((e) => e.status === "done").length;
 

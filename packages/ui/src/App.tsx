@@ -16,6 +16,7 @@ import { handleFolderDrop, readFolderDragPath } from "./lib/folderDrop";
 import { nodeTypes } from "./nodes";
 import { AutoSetupBanner } from "./panels/AutoSetupBanner";
 import { ConfigPanel } from "./panels/ConfigPanel";
+import { FilesView } from "./panels/FilesView";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { Palette } from "./panels/Palette";
 import { PipelineTabs } from "./panels/PipelineTabs";
@@ -132,6 +133,7 @@ function FlowCanvas({
 export default function App() {
   const [banner, setBanner] = useState<BannerState | null>(null);
   const focusMode = useFlowStore((s) => s.focusMode);
+  const view = useFlowStore((s) => s.view);
 
   function handleAutoSetupResult(scan: FolderScan, ruleCount: number) {
     setBanner({ scan, ruleCount });
@@ -148,18 +150,27 @@ export default function App() {
   return (
     <div className="sf-shell">
       <div className="sf-app">
-        {!focusMode && (
-          <Palette
-            onAutoSetupResult={handleAutoSetupResult}
-            onAutoSetupError={handleAutoSetupError}
-          />
+        {view === "files" ? (
+          <FilesView />
+        ) : (
+          <>
+            {!focusMode && (
+              <Palette
+                onAutoSetupResult={handleAutoSetupResult}
+                onAutoSetupError={handleAutoSetupError}
+              />
+            )}
+            <ReactFlowProvider>
+              <FlowCanvas
+                banner={banner}
+                onDismissBanner={() => setBanner(null)}
+              />
+            </ReactFlowProvider>
+            {!focusMode && <ConfigPanel />}
+          </>
         )}
-        <ReactFlowProvider>
-          <FlowCanvas banner={banner} onDismissBanner={() => setBanner(null)} />
-        </ReactFlowProvider>
-        {!focusMode && <ConfigPanel />}
       </div>
-      {!focusMode && (
+      {(view === "files" || !focusMode) && (
         <div className="sf-dock">
           <ReviewTray />
           <HistoryPanel />

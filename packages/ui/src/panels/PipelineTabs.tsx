@@ -1,5 +1,6 @@
 import type { PipelineLibrarySummary } from "@sortflow/engine";
 import {
+  FolderInput,
   Maximize2,
   Minimize2,
   Plus,
@@ -145,6 +146,15 @@ export function PipelineTabs() {
           onClick={() => void create()}
         >
           <Plus size={13} strokeWidth={2} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="sf-tabs-files"
+          aria-label="Move files by hand"
+          title="Files — drag anything anywhere, no pipeline needed"
+          onClick={() => useFlowStore.getState().setView("files")}
+        >
+          <FolderInput size={13} strokeWidth={2} aria-hidden="true" />
         </button>
         <button
           type="button"

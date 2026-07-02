@@ -191,6 +191,21 @@ describe("Engine", () => {
     ).toHaveLength(0);
   }, 15_000);
 
+  it("moveManually journals a manual move that undo can reverse", async () => {
+    const { inbox, dest, pipeline } = await setup(false);
+    if (!engine) throw new Error("setup failed");
+    await engine.start(pipeline);
+    await writeFile(join(inbox, "manual.txt"), "x");
+
+    const entry = await engine.moveManually(join(inbox, "manual.txt"), dest);
+    expect(entry.status).toBe("done");
+    expect(entry.moveNodeId).toBe("manual");
+    expect(existsSync(join(dest, "manual.txt"))).toBe(true);
+
+    await engine.undo(entry.id);
+    expect(existsSync(join(inbox, "manual.txt"))).toBe(true);
+  }, 15_000);
+
   it("undoAllDone reverses every completed move", async () => {
     const { inbox, dest, pipeline, engine } = await setup(false);
     await engine.start(pipeline);
