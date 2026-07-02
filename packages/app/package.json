@@ -1,0 +1,19 @@
+{
+  "name": "@sortflow/app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "tsup src/main.ts src/preload.ts --format cjs --external electron --out-dir dist",
+    "dev": "pnpm build && SORTFLOW_DEV=1 electron .",
+    "test": "echo 'app: covered by engine tests + manual smoke'"
+  },
+  "dependencies": {
+    "@sortflow/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.3"
+  }
+}
