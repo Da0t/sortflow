@@ -43,7 +43,17 @@ function FileBrowser({
     for (const p of expanded) {
       void load(p);
     }
-  }, [root, expanded, reloadTick, load]);
+  }, [root, expanded, load]);
+
+  // A move happened (in either pane) — re-list everything that's visible.
+  useEffect(() => {
+    if (reloadTick > 0) {
+      void load(root);
+      for (const p of expanded) {
+        void load(p);
+      }
+    }
+  }, [reloadTick, root, expanded, load]);
 
   const toggle = (entry: FsEntry) => {
     if (!entry.isDirectory) return;
