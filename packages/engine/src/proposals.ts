@@ -58,6 +58,17 @@ export class ProposalStore {
     await this.save();
   }
 
+  /** Flip every rejected proposal back to pending — the rescue path for a
+   * bulk mis-rejection. Returns how many were restored. */
+  async restoreRejected(): Promise<number> {
+    const rejected = this.items.filter((p) => p.status === "rejected");
+    for (const p of rejected) {
+      p.status = "pending";
+    }
+    if (rejected.length > 0) await this.save();
+    return rejected.length;
+  }
+
   /**
    * Rename a pending proposal's target file name. The file on disk is not
    * touched; the new name takes effect when the proposal is approved.

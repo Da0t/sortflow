@@ -221,6 +221,11 @@ export class Engine extends EventEmitter {
     await this.proposalStore.setStatus(proposalId, "rejected");
   }
 
+  /** Bring every rejected proposal back to pending for another look. */
+  async restoreRejected(): Promise<number> {
+    return this.proposalStore.restoreRejected();
+  }
+
   /**
    * Change the file name a pending proposal will move the file to.
    * Forgiving by design: illegal characters are stripped, the original

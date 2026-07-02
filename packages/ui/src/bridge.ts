@@ -33,6 +33,8 @@ export interface SortflowApi {
   listProposals(): Promise<Proposal[]>;
   approve(id: string): Promise<void>;
   reject(id: string): Promise<void>;
+  /** Flip every rejected proposal back to pending; returns the count. */
+  restoreRejected(): Promise<number>;
   renameProposal(id: string, newName: string): Promise<Proposal>;
   listJournal(): Promise<JournalEntry[]>;
   undo(id: string): Promise<void>;
@@ -229,6 +231,13 @@ function createMockApi(): SortflowApi {
       proposals = proposals.map((p) =>
         p.id === id ? { ...p, status: "rejected" as const } : p,
       );
+    },
+    async restoreRejected() {
+      const count = proposals.filter((p) => p.status === "rejected").length;
+      proposals = proposals.map((p) =>
+        p.status === "rejected" ? { ...p, status: "pending" as const } : p,
+      );
+      return count;
     },
     async renameProposal(id, newName) {
       proposals = proposals.map((p) =>

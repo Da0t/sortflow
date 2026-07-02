@@ -52,6 +52,25 @@ describe("ReviewTray", () => {
     });
   });
 
+  it("offers to restore rejected proposals", async () => {
+    const rejected: Proposal = {
+      id: "r-1",
+      filePath: "/x/a.png",
+      fileName: "a.png",
+      destDir: "/dest",
+      moveNodeId: "m1",
+      routeNodeIds: [],
+      createdAt: 1,
+      status: "rejected",
+    };
+    vi.spyOn(api, "listProposals").mockResolvedValue([rejected]);
+    const spy = vi.spyOn(api, "restoreRejected").mockResolvedValue(1);
+    render(<ReviewTray />);
+    expect(await screen.findByText(/1 rejected/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /restore/i }));
+    await waitFor(() => expect(spy).toHaveBeenCalledOnce());
+  });
+
   it("surfaces failed proposals with their error and no action buttons", async () => {
     const failed: Proposal = {
       id: "f-1",

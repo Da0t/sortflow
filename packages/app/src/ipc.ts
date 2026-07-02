@@ -200,6 +200,11 @@ export function registerIpc(
     await current.reject(id);
     onPending(pendingCount());
   });
+  ipcMain.handle("proposals:restoreRejected", async () => {
+    const count = await current.restoreRejected();
+    onPending(pendingCount());
+    return count;
+  });
   ipcMain.handle("proposals:rename", (_evt, id: string, newName: string) =>
     current.renameProposal(id, newName),
   );

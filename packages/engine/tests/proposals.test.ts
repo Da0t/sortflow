@@ -61,6 +61,28 @@ describe("ProposalStore", () => {
     expect(s.approvalStreak("other")).toBe(0);
   });
 
+  it("restoreRejected flips only rejected proposals back to pending", async () => {
+    const { s, file } = await store();
+    const a = await s.add(draft(), 1);
+    const b = await s.add(draft(), 2);
+    const c = await s.add(draft(), 3);
+    await s.setStatus(a.id, "rejected");
+    await s.setStatus(b.id, "rejected");
+    await s.setStatus(c.id, "executed");
+    expect(await s.restoreRejected()).toBe(2);
+    const statuses = s.list().map((p) => p.status);
+    expect(statuses.filter((st) => st === "pending")).toHaveLength(2);
+    expect(statuses).toContain("executed");
+    // Persisted: a reload sees the restored proposals as pending.
+    const reloaded = new ProposalStore(file);
+    await reloaded.load();
+    expect(reloaded.list().filter((p) => p.status === "pending")).toHaveLength(
+      2,
+    );
+    // Nothing rejected left — a second restore is a no-op.
+    expect(await s.restoreRejected()).toBe(0);
+  });
+
   it("update patches the proposal and persists across reload", async () => {
     const { s, file } = await store();
     const p = await s.add(draft(), 100);

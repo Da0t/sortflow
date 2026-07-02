@@ -52,6 +52,7 @@ export function ReviewTray() {
 
   const pending = proposals.filter((p) => p.status === "pending");
   const failed = proposals.filter((p) => p.status === "failed");
+  const rejected = proposals.filter((p) => p.status === "rejected");
 
   return (
     <div className="sf-tray">
@@ -103,6 +104,18 @@ export function ReviewTray() {
         >
           Reject all ({pending.length})
         </button>
+      )}
+      {rejected.length > 0 && (
+        <p className="sf-rejected-note">
+          {rejected.length} rejected
+          <button
+            type="button"
+            title="Bring every rejected file back into the review tray"
+            onClick={() => guard(api.restoreRejected())}
+          >
+            Restore
+          </button>
+        </p>
       )}
       <ul>
         {pending.map((p) => {
