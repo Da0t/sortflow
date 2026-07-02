@@ -203,69 +203,141 @@ body {
   color: var(--sf-text-muted);
 }
 
-/* One classic connected tree, Finder-outline style. */
-.sf-tree-scroll {
+/* Top-down branching tree diagram (binary-tree look). */
+.sf-btree-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  margin: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--sf-border);
-  border-radius: var(--sf-radius-sm);
-  background: var(--sf-surface);
+  background: var(--sf-bg);
 }
 
-.sf-tree-scroll button.sf-file-row {
-  position: relative;
+.sf-btree {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 100%;
+  padding: 24px 32px 48px;
+}
+
+/* One subtree: box on top, children row beneath. */
+.sf-btree-sub {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 3px 6px;
-  border: none;
-  border-radius: var(--sf-radius-sm);
-  background: transparent;
-  color: var(--sf-text);
-  font-size: 12.5px;
-  text-align: left;
-  cursor: grab;
-}
-
-.sf-tree-scroll button.sf-file-row:hover {
-  background: #f1f5f9;
-}
-
-.sf-tree-scroll button.sf-tree-root {
-  font-weight: 600;
-  width: auto;
-  cursor: default;
-}
-
-/* Nested level: vertical guide line down the branch... */
-.sf-tree-children {
-  margin-left: 13px;
-  padding-left: 9px;
-  border-left: 1px solid var(--sf-border);
-}
-
-.sf-tree-item {
   position: relative;
+  padding: 18px 5px 0;
 }
 
-/* ...and a horizontal connector from the line to each row. */
-.sf-tree-children > .sf-tree-item > .sf-file-row::before {
+/* Vertical stem from the sibling rail down into this box. */
+.sf-btree-sub::before {
   content: "";
   position: absolute;
-  left: -9px;
-  top: 50%;
-  width: 8px;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 18px;
+  background: var(--sf-border);
+}
+
+/* Horizontal rail across all siblings. */
+.sf-btree-sub::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 1px;
   background: var(--sf-border);
 }
 
-.sf-file-row-drop {
+.sf-btree-sub:first-child::after {
+  left: 50%;
+}
+
+.sf-btree-sub:last-child::after {
+  right: 50%;
+}
+
+.sf-btree-sub:only-child::after {
+  display: none;
+}
+
+.sf-btree-rootsub {
+  padding-top: 0;
+}
+
+.sf-btree-rootsub::before,
+.sf-btree-rootsub::after {
+  display: none;
+}
+
+/* The children row, with a stem dropping from the parent box. */
+.sf-btree-children {
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+  margin-top: 18px;
+}
+
+.sf-btree-children::before {
+  content: "";
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  width: 1px;
+  height: 18px;
+  background: var(--sf-border);
+}
+
+/* One file/folder as a box. */
+button.sf-btree-box,
+span.sf-btree-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 5px 10px;
+  border: 1px solid var(--sf-border);
+  border-radius: 8px;
+  background: var(--sf-surface);
+  color: var(--sf-text);
+  font-size: 12px;
+  box-shadow: var(--sf-shadow);
+  cursor: grab;
+}
+
+button.sf-btree-box:hover {
+  border-color: var(--sf-primary);
+}
+
+.sf-btree-folder {
+  font-weight: 550;
+}
+
+.sf-btree-root {
+  border-color: var(--sf-primary);
+  cursor: default;
+}
+
+.sf-btree-note {
+  color: var(--sf-text-muted);
+  font-style: italic;
+  cursor: default;
+  box-shadow: none;
+}
+
+.sf-btree-chevron {
+  flex-shrink: 0;
+  color: var(--sf-text-muted);
+  transition: transform 120ms ease;
+}
+
+.sf-btree-chevron.sf-open {
+  transform: rotate(180deg);
+}
+
+.sf-btree-drop {
   outline: 2px dashed var(--sf-primary);
-  outline-offset: -2px;
+  outline-offset: 1px;
   background: var(--sf-primary-soft);
 }
 

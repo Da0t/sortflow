@@ -1,6 +1,6 @@
 import {
   ArrowLeft,
-  ChevronRight,
+  ChevronDown,
   File,
   Folder,
   House,
@@ -13,13 +13,15 @@ import { readFolderDragPath, setFolderDragData } from "../lib/folderDrop";
 import { useFlowStore } from "../store";
 
 const HOME = "~";
+/** Widest a single branch fans out before collapsing into "+N more". */
+const MAX_KIDS = 12;
 
 /**
- * The Files page: one classic connected tree of your whole home directory —
- * Finder-outline style, with guide lines linking every branch. Expand any
- * folder in place, then drag any file or folder onto any folder row (or the
- * Home header) to move it. Every move is journaled: it shows in History and
- * can be undone. Nothing is ever overwritten.
+ * The Files page: your directory drawn as a top-down tree diagram — every
+ * file and folder is a box, children branch out beneath their parent with
+ * connector lines, binary-tree style. Click a folder box to expand its
+ * branch; drag any box onto a folder box to move it. Every move is
+ * journaled: it shows in History and can be undone.
  */
 export function FilesView() {
   const setView = useFlowStore((s) => s.setView);
@@ -85,72 +87,89 @@ export function FilesView() {
     setDropTarget(destDir);
   };
 
-  const renderEntries = (entries: FsEntry[]): ReactElement[] =>
-    entries.map((entry) => {
-      const isOpen = entry.isDirectory && expanded.has(entry.path);
-      const kids = entriesByPath[entry.path];
-      return (
-        <div key={entry.path} className="sf-tree-item">
-          <button
-            type="button"
-            className={`sf-file-row${
-              dropTarget === entry.path ? " sf-file-row-drop" : ""
-            }`}
-            title={entry.path}
-            draggable
-            onClick={() => toggle(entry.path)}
-            onDragStart={(e) => {
-              setFolderDragData(e.dataTransfer, entry.path);
-              e.dataTransfer.effectAllowed = "move";
-            }}
-            onDragOver={
-              entry.isDirectory ? (e) => dragOver(entry.path, e) : undefined
-            }
-            onDragLeave={() => setDropTarget(null)}
-            onDrop={
-              entry.isDirectory ? (e) => void drop(entry.path, e) : undefined
-            }
-          >
-            <ChevronRight
+  const renderNode = (entry: FsEntry): ReactElement => {
+    const isOpen = entry.isDirectory && expanded.has(entry.path);
+    const kids = entriesByPath[entry.path];
+    const shown = kids?.slice(0, MAX_KIDS) ?? [];
+    const extra = (kids?.length ?? 0) - shown.length;
+    return (
+      <div key={entry.path} className="sf-btree-sub">
+        <button
+          type="button"
+          className={`sf-btree-box${
+            entry.isDirectory ? " sf-btree-folder" : ""
+          }${dropTarget === entry.path ? " sf-btree-drop" : ""}`}
+          title={entry.path}
+          draggable
+          onClick={() => toggle(entry.path)}
+          onDragStart={(e) => {
+            setFolderDragData(e.dataTransfer, entry.path);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragOver={
+            entry.isDirectory ? (e) => dragOver(entry.path, e) : undefined
+          }
+          onDragLeave={() => setDropTarget(null)}
+          onDrop={
+            entry.isDirectory ? (e) => void drop(entry.path, e) : undefined
+          }
+        >
+          {entry.isDirectory ? (
+            <Folder
               size={12}
               strokeWidth={2}
               aria-hidden="true"
-              className={`sf-folder-chevron${isOpen ? " sf-open" : ""}`}
-              style={entry.isDirectory ? undefined : { visibility: "hidden" }}
+              className="sf-folder-icon"
             />
-            {entry.isDirectory ? (
-              <Folder
-                size={13}
-                strokeWidth={2}
-                aria-hidden="true"
-                className="sf-folder-icon"
-              />
-            ) : (
-              <File
-                size={13}
-                strokeWidth={2}
-                aria-hidden="true"
-                className="sf-folder-icon"
-              />
-            )}
-            <span className="sf-folder-name">{entry.name}</span>
-          </button>
-          {isOpen && (
-            <div className="sf-tree-children">
-              {kids === undefined ? (
-                <span className="sf-folder-empty">Loading…</span>
-              ) : kids.length === 0 ? (
-                <span className="sf-folder-empty">Empty folder</span>
-              ) : (
-                renderEntries(kids)
-              )}
-            </div>
+          ) : (
+            <File
+              size={12}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="sf-folder-icon"
+            />
           )}
-        </div>
-      );
-    });
+          <span className="sf-folder-name">{entry.name}</span>
+          {entry.isDirectory && (
+            <ChevronDown
+              size={11}
+              strokeWidth={2}
+              aria-hidden="true"
+              className={`sf-btree-chevron${isOpen ? " sf-open" : ""}`}
+            />
+          )}
+        </button>
+        {isOpen && (
+          <div className="sf-btree-children">
+            {kids === undefined ? (
+              <div className="sf-btree-sub">
+                <span className="sf-btree-box sf-btree-note">Loading…</span>
+              </div>
+            ) : kids.length === 0 ? (
+              <div className="sf-btree-sub">
+                <span className="sf-btree-box sf-btree-note">Empty</span>
+              </div>
+            ) : (
+              <>
+                {shown.map(renderNode)}
+                {extra > 0 && (
+                  <div className="sf-btree-sub">
+                    <span className="sf-btree-box sf-btree-note">
+                      +{extra} more
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const rootEntries = entriesByPath[HOME];
+  const rootShown = rootEntries?.slice(0, MAX_KIDS) ?? [];
+  const rootExtra = (rootEntries?.length ?? 0) - rootShown.length;
 
   return (
     <div className="sf-files">
@@ -164,8 +183,8 @@ export function FilesView() {
           Pipelines
         </button>
         <span className="sf-files-title">
-          Your whole directory as one tree — expand any branch, then drag any
-          file or folder onto a folder to move it. Undo any move in History.
+          Your directory as a branching tree — click a folder box to open its
+          branch, drag any box onto a folder box to move it. Undo in History.
         </span>
         <button
           type="button"
@@ -182,28 +201,41 @@ export function FilesView() {
           {error}
         </p>
       )}
-      <div className="sf-tree-scroll">
-        <button
-          type="button"
-          className={`sf-file-row sf-tree-root${
-            dropTarget === HOME ? " sf-file-row-drop" : ""
-          }`}
-          title="Your home folder"
-          onDragOver={(e) => dragOver(HOME, e)}
-          onDragLeave={() => setDropTarget(null)}
-          onDrop={(e) => void drop(HOME, e)}
-        >
-          <House size={13} strokeWidth={2} aria-hidden="true" />
-          Home
-        </button>
-        <div className="sf-tree-children">
-          {rootEntries === undefined ? (
-            <span className="sf-folder-empty">Loading…</span>
-          ) : rootEntries.length === 0 ? (
-            <span className="sf-folder-empty">Empty folder</span>
-          ) : (
-            renderEntries(rootEntries)
-          )}
+      <div className="sf-btree-scroll">
+        <div className="sf-btree">
+          <div className="sf-btree-sub sf-btree-rootsub">
+            <button
+              type="button"
+              className={`sf-btree-box sf-btree-folder sf-btree-root${
+                dropTarget === HOME ? " sf-btree-drop" : ""
+              }`}
+              title="Your home folder"
+              onDragOver={(e) => dragOver(HOME, e)}
+              onDragLeave={() => setDropTarget(null)}
+              onDrop={(e) => void drop(HOME, e)}
+            >
+              <House size={13} strokeWidth={2} aria-hidden="true" />
+              Home
+            </button>
+            <div className="sf-btree-children">
+              {rootEntries === undefined ? (
+                <div className="sf-btree-sub">
+                  <span className="sf-btree-box sf-btree-note">Loading…</span>
+                </div>
+              ) : (
+                <>
+                  {rootShown.map(renderNode)}
+                  {rootExtra > 0 && (
+                    <div className="sf-btree-sub">
+                      <span className="sf-btree-box sf-btree-note">
+                        +{rootExtra} more
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
