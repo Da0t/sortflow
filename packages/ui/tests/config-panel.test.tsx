@@ -1,6 +1,7 @@
 import type { MoveConfig, Pipeline } from "@sortflow/engine";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { api } from "../src/bridge";
 import { ConfigPanel } from "../src/panels/ConfigPanel";
 import { useFlowStore } from "../src/store";
 
@@ -34,5 +35,17 @@ describe("ConfigPanel", () => {
     const cfg = useFlowStore.getState().toPipeline().nodes[0]
       .config as MoveConfig;
     expect(cfg.destination).toBe("~/Sorted/{category}");
+  });
+
+  it("shows an error message when setPipeline rejects", async () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    vi.spyOn(api, "setPipeline").mockRejectedValueOnce(
+      new Error("IPC channel closed"),
+    );
+    render(<ConfigPanel />);
+    fireEvent.click(screen.getByText(/save & apply/i));
+    expect(await screen.findByText(/IPC channel closed/i)).toBeTruthy();
+    vi.restoreAllMocks();
   });
 });

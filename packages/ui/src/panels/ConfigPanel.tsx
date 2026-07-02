@@ -49,11 +49,20 @@ export function ConfigPanel() {
   const toPipeline = useFlowStore((s) => s.toPipeline);
   const [problems, setProblems] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const save = async () => {
-    const result = await api.setPipeline(toPipeline());
-    setProblems(result.problems);
-    setSaved(result.problems.length === 0);
+    setSaveError(null);
+    try {
+      const result = await api.setPipeline(toPipeline());
+      setProblems(result.problems);
+      setSaved(result.problems.length === 0);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to save pipeline",
+      );
+      setSaved(false);
+    }
   };
 
   const set = (config: NodeConfig) =>
@@ -167,6 +176,11 @@ export function ConfigPanel() {
           {problems.map((p) => (
             <p key={p}>⚠ {p}</p>
           ))}
+        </div>
+      )}
+      {saveError && (
+        <div className="sf-problems" role="alert">
+          <p>⚠ {saveError}</p>
         </div>
       )}
     </div>
