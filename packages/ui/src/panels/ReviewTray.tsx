@@ -85,6 +85,25 @@ export function ReviewTray() {
           Approve all ({pending.length})
         </button>
       )}
+      {pending.length > 1 && (
+        <button
+          type="button"
+          className="sf-btn-neutral sf-btn-reject-all"
+          onClick={() => {
+            setError(null);
+            void (async () => {
+              try {
+                await Promise.all(pending.map((p) => api.reject(p.id)));
+                await refresh();
+              } catch (e) {
+                setError(message(e));
+              }
+            })();
+          }}
+        >
+          Reject all ({pending.length})
+        </button>
+      )}
       <ul>
         {pending.map((p) => {
           const shownName = p.targetName ?? p.fileName;

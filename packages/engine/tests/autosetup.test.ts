@@ -229,6 +229,29 @@ describe("suggestPipeline", () => {
     );
   });
 
+  it("destBase overrides bucket destinations with <base>/<label>", () => {
+    const scan = {
+      total: 20,
+      buckets: [
+        { key: "screenshots", label: "Screenshots", count: 10 },
+        { key: "documents", label: "Documents", count: 10 },
+      ],
+    };
+    const pipeline = suggestPipeline("/watch", scan, {
+      minCount: 1,
+      home: "/home/testuser",
+      destBase: "~/Desktop",
+    });
+    const shots = pipeline.nodes.find((n) => n.id === "auto-m-screenshots");
+    const docs = pipeline.nodes.find((n) => n.id === "auto-m-documents");
+    expect((shots?.config as { destination: string }).destination).toBe(
+      "/home/testuser/Desktop/Screenshots",
+    );
+    expect((docs?.config as { destination: string }).destination).toBe(
+      "/home/testuser/Desktop/Documents",
+    );
+  });
+
   it("move nodes are auto: false (review-first)", () => {
     const scan = {
       total: 10,

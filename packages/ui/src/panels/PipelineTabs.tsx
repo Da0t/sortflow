@@ -15,6 +15,7 @@ export function PipelineTabs() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
   const [problems, setProblems] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const loadPipeline = useFlowStore((s) => s.loadPipeline);
   const toPipeline = useFlowStore((s) => s.toPipeline);
 
@@ -56,6 +57,7 @@ export function PipelineTabs() {
     const result = await api.setPipelineEnabled(id, enabled);
     setState(result.state);
     setProblems(result.problems);
+    setWarnings(result.warnings ?? []);
   };
 
   const commitRename = async (id: string) => {
@@ -142,6 +144,16 @@ export function PipelineTabs() {
             <p key={p}>
               <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
               {p}
+            </p>
+          ))}
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <div className="sf-warnings sf-tabs-warnings">
+          {warnings.map((w) => (
+            <p key={w}>
+              <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+              {w}
             </p>
           ))}
         </div>

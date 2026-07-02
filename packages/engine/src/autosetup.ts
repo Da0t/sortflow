@@ -157,11 +157,15 @@ export async function scanFolder(
  *
  * Wire-up: watch out → first filter; each filter match → its move;
  * each filter else → next filter (last else dangles).
+ *
+ * `destBase` overrides each bucket's default destination with
+ * `<destBase>/<bucket label>` (e.g. destBase "~/Desktop" sends screenshots
+ * to ~/Desktop/Screenshots) for users who organize in one place.
  */
 export function suggestPipeline(
   watchPath: string,
   scan: FolderScan,
-  opts: { minCount?: number; home?: string } = {},
+  opts: { minCount?: number; home?: string; destBase?: string } = {},
 ): Pipeline {
   const minCount = opts.minCount ?? 5;
   const home = opts.home ?? os.homedir();
@@ -210,7 +214,10 @@ export function suggestPipeline(
       position: { x: 340, y },
     });
 
-    const destination = def.destination.replace(/^~/, home);
+    const rawDestination = opts.destBase
+      ? `${opts.destBase.replace(/\/+$/, "")}/${def.label}`
+      : def.destination;
+    const destination = rawDestination.replace(/^~/, home);
     nodes.push({
       id: mId,
       kind: "move" as const,

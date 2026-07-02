@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Pipeline } from "./types";
 
@@ -41,6 +42,39 @@ export function mergePipelines(pipelines: Pipeline[]): Pipeline {
     nodes: pipelines.flatMap((p) => p.nodes),
     edges: pipelines.flatMap((p) => p.edges),
   };
+}
+
+/**
+ * Warn when two enabled pipelines watch the same folder. The engine handles
+ * the overlap safely (the first pending proposal for a file wins), but it
+ * usually means duplicate rules the user forgot about.
+ */
+export function detectWatchOverlaps(
+  records: PipelineRecord[],
+  home = homedir(),
+): string[] {
+  const namesByPath = new Map<string, Set<string>>();
+  for (const record of records) {
+    if (!record.enabled) continue;
+    for (const node of record.pipeline.nodes) {
+      if (node.kind !== "watch") continue;
+      const raw = (node.config as { path?: string }).path ?? "";
+      if (!raw) continue;
+      const path = raw.replace(/^~/, home).replace(/\/+$/, "");
+      const names = namesByPath.get(path) ?? new Set();
+      names.add(record.name);
+      namesByPath.set(path, names);
+    }
+  }
+  const warnings: string[] = [];
+  for (const [path, names] of namesByPath) {
+    if (names.size > 1) {
+      warnings.push(
+        `${[...names].map((n) => `"${n}"`).join(" and ")} both watch ${path} — whichever rule matches a file first wins`,
+      );
+    }
+  }
+  return warnings;
 }
 
 /**
@@ -134,6 +168,11 @@ export class PipelineLibrary {
   /** Pipelines that should be running, in library order. */
   enabledPipelines(): Pipeline[] {
     return this.state.pipelines.filter((r) => r.enabled).map((r) => r.pipeline);
+  }
+
+  /** Snapshot of every record (for overlap checks and the like). */
+  records(): PipelineRecord[] {
+    return [...this.state.pipelines];
   }
 
   async setActive(id: string): Promise<PipelineRecord> {

@@ -5,7 +5,9 @@ import {
   Engine,
   type Pipeline,
   type PipelineLibrary,
+  detectWatchOverlaps,
   mergePipelines,
+  previewPipeline,
   scanFolder,
   suggestPipeline,
   validatePipeline,
@@ -74,10 +76,16 @@ export function registerIpc(
   ipcMain.handle("pipeline:set", async (_evt, pipeline: Pipeline) => {
     // Validate the merged graph so cross-pipeline conflicts surface too.
     const problems = validatePipeline(mergedWithDraft(pipeline));
-    if (problems.length > 0) return { problems };
+    if (problems.length > 0) return { problems, warnings: [] };
     await library.savePipeline(library.summary().activeId, pipeline);
     await restartEngine();
-    return { problems: [] };
+    return { problems: [], warnings: detectWatchOverlaps(library.records()) };
+  });
+
+  ipcMain.handle("pipeline:preview", async (_evt, pipeline: Pipeline) => {
+    const problems = validatePipeline(pipeline);
+    if (problems.length > 0) return { problems };
+    return { problems: [], preview: await previewPipeline(pipeline) };
   });
 
   ipcMain.handle("pipelines:list", () => library.summary());
@@ -130,10 +138,14 @@ export function registerIpc(
       if (problems.length > 0) {
         // The stored draft can't run — revert so the toggle reflects reality.
         await library.setEnabled(id, !enabled);
-        return { state: library.summary(), problems };
+        return { state: library.summary(), problems, warnings: [] };
       }
       await restartEngine();
-      return { state: library.summary(), problems: [] };
+      return {
+        state: library.summary(),
+        problems: [],
+        warnings: detectWatchOverlaps(library.records()),
+      };
     },
   );
 
@@ -155,14 +167,17 @@ export function registerIpc(
     current.approvalStreak(moveNodeId),
   );
 
-  ipcMain.handle("autosetup:scan", async (_evt, dir: string) => {
-    const expanded = dir.startsWith("~")
-      ? dir.replace(/^~/, os.homedir())
-      : dir;
-    const scan = await scanFolder(expanded);
-    const pipeline = suggestPipeline(expanded, scan);
-    return { scan, pipeline };
-  });
+  ipcMain.handle(
+    "autosetup:scan",
+    async (_evt, dir: string, destBase?: string) => {
+      const expanded = dir.startsWith("~")
+        ? dir.replace(/^~/, os.homedir())
+        : dir;
+      const scan = await scanFolder(expanded);
+      const pipeline = suggestPipeline(expanded, scan, { destBase });
+      return { scan, pipeline };
+    },
+  );
 
   ipcMain.handle("dialog:pickFolder", async (_evt, defaultPath?: string) => {
     const win = getWin();

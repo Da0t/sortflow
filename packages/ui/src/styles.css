@@ -167,6 +167,64 @@ body {
   margin: 2px 0;
 }
 
+/* Soft warnings (overlapping watches etc.) — informative, not blocking. */
+.sf-warnings {
+  font-size: 12px;
+  color: #b45309;
+}
+
+.sf-warnings p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.sf-tabs-warnings {
+  padding: 4px 12px 8px;
+}
+
+/* ── Pipeline preview (dry run) ───────────────────────────────── */
+.sf-preview-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius-sm);
+  background: transparent;
+  color: var(--sf-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sf-preview-btn:hover {
+  background: #f1f5f9;
+}
+
+.sf-preview-result {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-bg);
+  font-size: 12px;
+}
+
+.sf-preview-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.sf-preview-line {
+  margin: 2px 0;
+  color: var(--sf-text-muted);
+  word-break: break-all;
+}
+
 /* ── Palette ──────────────────────────────────────────────────── */
 .sf-palette {
   width: 208px;

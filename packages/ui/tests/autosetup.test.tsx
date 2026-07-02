@@ -188,4 +188,29 @@ describe("Auto Setup UI", () => {
     });
     expect(screen.getByText(/permission denied/i)).toBeTruthy();
   });
+
+  it("passes the chosen Sort-into base to autoSetup", async () => {
+    render(<App />);
+    fireEvent.change(
+      screen.getByRole("combobox", { name: /sort files into/i }),
+      { target: { value: "~/Desktop" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: /auto setup/i }));
+    await waitFor(() => {
+      expect(api.autoSetup).toHaveBeenCalledWith("~/Downloads", "~/Desktop");
+    });
+  });
+
+  it("omits the base when Sort into is the system-folders default", async () => {
+    render(<App />);
+    // Select the default explicitly so this test is order-independent.
+    fireEvent.change(
+      screen.getByRole("combobox", { name: /sort files into/i }),
+      { target: { value: "" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: /auto setup/i }));
+    await waitFor(() => {
+      expect(api.autoSetup).toHaveBeenCalledWith("~/Downloads", undefined);
+    });
+  });
 });

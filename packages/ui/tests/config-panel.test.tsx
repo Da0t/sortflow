@@ -43,6 +43,45 @@ describe("ConfigPanel", () => {
     expect(cfg.destination).toBe("~/Sorted/{category}");
   });
 
+  it("Preview shows would-move counts without applying", async () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    const previewSpy = vi.spyOn(api, "previewPipeline").mockResolvedValue({
+      problems: [],
+      preview: {
+        total: 10,
+        wouldMove: 7,
+        needsClassify: 2,
+        unmatched: 1,
+        truncated: false,
+        buckets: [{ moveNodeId: "m1", destination: "~/Docs", count: 7 }],
+      },
+    });
+    const setSpy = vi.spyOn(api, "setPipeline");
+    render(<ConfigPanel />);
+    fireEvent.click(screen.getByRole("button", { name: /preview/i }));
+    expect(await screen.findByText(/7 of 10 files would move/i)).toBeTruthy();
+    expect(screen.getByText(/7 → ~\/Docs/)).toBeTruthy();
+    expect(screen.getByText(/2 would be AI-classified/i)).toBeTruthy();
+    expect(screen.getByText(/1 match no rule/i)).toBeTruthy();
+    expect(previewSpy).toHaveBeenCalledOnce();
+    expect(setSpy).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it("shows watch-overlap warnings after Save & Apply", async () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    vi.spyOn(api, "setPipeline").mockResolvedValue({
+      problems: [],
+      warnings: ['"A" and "B" both watch /Users/u/Downloads'],
+    });
+    render(<ConfigPanel />);
+    fireEvent.click(screen.getByText(/save & apply/i));
+    expect(await screen.findByText(/both watch/i)).toBeTruthy();
+    vi.restoreAllMocks();
+  });
+
   it("shows an error message when setPipeline rejects", async () => {
     useFlowStore.getState().loadPipeline(demo);
     useFlowStore.getState().setSelected("m1");

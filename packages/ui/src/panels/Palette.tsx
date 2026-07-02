@@ -31,6 +31,34 @@ const KINDS: Array<{ kind: NodeKind; label: string; icon: ReactElement }> = [
 
 const FOLDERS = ["~/Downloads", "~/Desktop", "~/Documents"];
 
+const DEST_KEY = "sf-autosetup-dest";
+
+/** Storage access is guarded like ConfigPanel's recents: unavailable storage
+ * (e.g. in tests) just means the choice doesn't persist. */
+function loadDestBase(): string {
+  try {
+    return window.localStorage.getItem(DEST_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveDestBase(value: string): void {
+  try {
+    window.localStorage.setItem(DEST_KEY, value);
+  } catch {
+    // Not persisted — still applies for this session.
+  }
+}
+
+/** Preset bases for where Auto Setup sends sorted files. "" = per-category
+ * system folders (Pictures, Documents, …). */
+const DEST_CHOICES: Array<{ value: string; label: string }> = [
+  { value: "", label: "System folders" },
+  { value: "~/Desktop", label: "Desktop" },
+  { value: "~/Documents", label: "Documents" },
+];
+
 interface AutoSetupSectionProps {
   onResult(scan: FolderScan, ruleCount: number): void;
   onError(message: string): void;
@@ -38,12 +66,25 @@ interface AutoSetupSectionProps {
 
 function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
   const [folder, setFolder] = useState(FOLDERS[0]);
+  const [destBase, setDestBase] = useState(loadDestBase);
   const [busy, setBusy] = useState(false);
+
+  async function chooseDest(value: string) {
+    if (value === "__custom__") {
+      const picked = await api.pickFolder();
+      if (!picked) return; // cancelled — keep the previous choice
+      setDestBase(picked);
+      saveDestBase(picked);
+      return;
+    }
+    setDestBase(value);
+    saveDestBase(value);
+  }
 
   async function handleAutoSetup() {
     setBusy(true);
     try {
-      const result = await api.autoSetup(folder);
+      const result = await api.autoSetup(folder, destBase || undefined);
       useFlowStore.getState().loadPipeline(result.pipeline);
       // Count rules = number of filter-move pairs (filter nodes starting with auto-f-)
       const ruleCount = result.pipeline.nodes.filter((n) =>
@@ -71,6 +112,23 @@ function AutoSetupSection({ onResult, onError }: AutoSetupSectionProps) {
             {f}
           </option>
         ))}
+      </select>
+      <select
+        value={destBase}
+        onChange={(e) => void chooseDest(e.target.value)}
+        className="sf-autosetup-select"
+        aria-label="Sort files into"
+        title="Where Auto Setup sends sorted files"
+      >
+        {DEST_CHOICES.map((c) => (
+          <option key={c.value || "system"} value={c.value}>
+            Sort into: {c.label}
+          </option>
+        ))}
+        {destBase !== "" && !DEST_CHOICES.some((c) => c.value === destBase) && (
+          <option value={destBase}>Sort into: {destBase}</option>
+        )}
+        <option value="__custom__">Choose folder…</option>
       </select>
       <button
         type="button"

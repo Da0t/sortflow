@@ -12,6 +12,7 @@ function subscribe(channel: string) {
 contextBridge.exposeInMainWorld("sortflow", {
   getPipeline: () => ipcRenderer.invoke("pipeline:get"),
   setPipeline: (p: unknown) => ipcRenderer.invoke("pipeline:set", p),
+  previewPipeline: (p: unknown) => ipcRenderer.invoke("pipeline:preview", p),
   listProposals: () => ipcRenderer.invoke("proposals:list"),
   approve: (id: string) => ipcRenderer.invoke("proposals:approve", id),
   reject: (id: string) => ipcRenderer.invoke("proposals:reject", id),
@@ -29,7 +30,8 @@ contextBridge.exposeInMainWorld("sortflow", {
     subscribe("engine:stuck")(cb as never),
   onNodeStatus: (cb: (...a: unknown[]) => void) =>
     subscribe("engine:nodeStatus")(cb as never),
-  autoSetup: (path: string) => ipcRenderer.invoke("autosetup:scan", path),
+  autoSetup: (path: string, destBase?: string) =>
+    ipcRenderer.invoke("autosetup:scan", path, destBase),
   pickFolder: (defaultPath?: string) =>
     ipcRenderer.invoke("dialog:pickFolder", defaultPath),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

@@ -3,9 +3,16 @@ import type {
   FilterConfig,
   MoveConfig,
   NodeConfig,
+  PipelinePreview,
   WatchConfig,
 } from "@sortflow/engine";
-import { CalendarDays, FolderOpen, Trash2, TriangleAlert } from "lucide-react";
+import {
+  CalendarDays,
+  Eye,
+  FolderOpen,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../bridge";
 import {
@@ -140,6 +147,8 @@ export function ConfigPanel() {
   const removeNode = useFlowStore((s) => s.removeNode);
   const toPipeline = useFlowStore((s) => s.toPipeline);
   const [problems, setProblems] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [preview, setPreview] = useState<PipelinePreview | null>(null);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
@@ -150,11 +159,26 @@ export function ConfigPanel() {
     }
   }, [selectedId, node?.data.kind]);
 
+  const runPreview = async () => {
+    setSaveError(null);
+    setSaved(false);
+    try {
+      const result = await api.previewPipeline(toPipeline());
+      setProblems(result.problems);
+      setPreview(result.preview ?? null);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to preview pipeline",
+      );
+    }
+  };
+
   const save = async () => {
     setSaveError(null);
     try {
       const result = await api.setPipeline(toPipeline());
       setProblems(result.problems);
+      setWarnings(result.warnings ?? []);
       const ok = result.problems.length === 0;
       setSaved(ok);
       if (ok) {
@@ -408,11 +432,54 @@ export function ConfigPanel() {
             </>
           );
         })()}
+      <button
+        type="button"
+        className="sf-preview-btn"
+        title="Scan watched folders and show what would move — nothing moves yet"
+        onClick={() => void runPreview()}
+      >
+        <Eye size={14} strokeWidth={2} aria-hidden="true" />
+        Preview
+      </button>
+      {preview && (
+        <div className="sf-preview-result" aria-live="polite">
+          <p className="sf-preview-title">
+            {preview.wouldMove} of {preview.total} files would move
+            {preview.truncated ? " (first 2000 scanned)" : ""}
+          </p>
+          {preview.buckets.map((b) => (
+            <p key={b.moveNodeId} className="sf-preview-line">
+              {b.count} → {b.destination}
+            </p>
+          ))}
+          {preview.needsClassify > 0 && (
+            <p className="sf-preview-line">
+              {preview.needsClassify} would be AI-classified (folder depends on
+              category)
+            </p>
+          )}
+          {preview.unmatched > 0 && (
+            <p className="sf-preview-line">
+              {preview.unmatched} match no rule and stay put
+            </p>
+          )}
+        </div>
+      )}
       <button type="button" className="sf-save" onClick={() => void save()}>
         Save &amp; Apply
       </button>
       {saved && problems.length === 0 && (
         <p className="sf-saved">Pipeline applied ✓</p>
+      )}
+      {warnings.length > 0 && (
+        <div className="sf-warnings">
+          {warnings.map((w) => (
+            <p key={w}>
+              <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+              {w}
+            </p>
+          ))}
+        </div>
       )}
       {problems.length > 0 && (
         <div className="sf-problems">

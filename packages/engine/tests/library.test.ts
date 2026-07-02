@@ -2,7 +2,12 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PipelineLibrary, mergePipelines } from "../src/library";
+import {
+  PipelineLibrary,
+  type PipelineRecord,
+  detectWatchOverlaps,
+  mergePipelines,
+} from "../src/library";
 import type { Pipeline } from "../src/types";
 
 async function tempDir(): Promise<string> {
@@ -47,6 +52,62 @@ describe("mergePipelines", () => {
 
   it("merges zero pipelines into an empty pipeline", () => {
     expect(mergePipelines([])).toEqual({ nodes: [], edges: [] });
+  });
+});
+
+describe("detectWatchOverlaps", () => {
+  const watching = (id: string, path: string): Pipeline => ({
+    nodes: [
+      {
+        id,
+        kind: "watch",
+        config: { path, recursive: false },
+        position: { x: 0, y: 0 },
+      },
+    ],
+    edges: [],
+  });
+  const record = (
+    name: string,
+    pipeline: Pipeline,
+    enabled = true,
+  ): PipelineRecord => ({ id: name, name, enabled, pipeline });
+
+  it("warns when two enabled pipelines watch the same folder", () => {
+    const warnings = detectWatchOverlaps(
+      [
+        record("Downloads", watching("w1", "~/Downloads")),
+        record("Cleanup", watching("w2", "/home/u/Downloads")),
+      ],
+      "/home/u",
+    );
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/"Downloads" and "Cleanup"/);
+    expect(warnings[0]).toContain("/home/u/Downloads");
+  });
+
+  it("ignores disabled pipelines and distinct folders", () => {
+    expect(
+      detectWatchOverlaps(
+        [
+          record("A", watching("w1", "~/Downloads")),
+          record("B", watching("w2", "~/Downloads"), false),
+          record("C", watching("w3", "~/Desktop")),
+        ],
+        "/home/u",
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not warn about duplicate watches inside one pipeline", () => {
+    const p: Pipeline = {
+      nodes: [
+        ...watching("w1", "~/Downloads").nodes,
+        ...watching("w2", "~/Downloads/").nodes,
+      ],
+      edges: [],
+    };
+    expect(detectWatchOverlaps([record("Solo", p)], "/home/u")).toEqual([]);
   });
 });
 

@@ -17,6 +17,41 @@ describe("ReviewTray", () => {
     await waitFor(() => expect(approveSpy).toHaveBeenCalledWith("demo-1"));
   });
 
+  it("rejects every pending proposal via Reject all", async () => {
+    const two: Proposal[] = [
+      {
+        id: "p-1",
+        filePath: "/x/a.png",
+        fileName: "a.png",
+        destDir: "/dest",
+        moveNodeId: "m1",
+        routeNodeIds: [],
+        createdAt: 1,
+        status: "pending",
+      },
+      {
+        id: "p-2",
+        filePath: "/x/b.png",
+        fileName: "b.png",
+        destDir: "/dest",
+        moveNodeId: "m1",
+        routeNodeIds: [],
+        createdAt: 2,
+        status: "pending",
+      },
+    ];
+    vi.spyOn(api, "listProposals").mockResolvedValue(two);
+    const rejectSpy = vi.spyOn(api, "reject").mockResolvedValue(undefined);
+    render(<ReviewTray />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /reject all \(2\)/i }),
+    );
+    await waitFor(() => {
+      expect(rejectSpy).toHaveBeenCalledWith("p-1");
+      expect(rejectSpy).toHaveBeenCalledWith("p-2");
+    });
+  });
+
   it("surfaces failed proposals with their error and no action buttons", async () => {
     const failed: Proposal = {
       id: "f-1",

@@ -3,6 +3,7 @@ import type {
   JournalEntry,
   Pipeline,
   PipelineLibrarySummary,
+  PipelinePreview,
   Proposal,
 } from "@sortflow/engine";
 
@@ -15,7 +16,13 @@ export interface FolderEntry {
 
 export interface SortflowApi {
   getPipeline(): Promise<Pipeline>;
-  setPipeline(p: Pipeline): Promise<{ problems: string[] }>;
+  setPipeline(
+    p: Pipeline,
+  ): Promise<{ problems: string[]; warnings?: string[] }>;
+  /** Dry-run the graph against watched folders — nothing moves. */
+  previewPipeline(
+    p: Pipeline,
+  ): Promise<{ problems: string[]; preview?: PipelinePreview }>;
   listProposals(): Promise<Proposal[]>;
   approve(id: string): Promise<void>;
   reject(id: string): Promise<void>;
@@ -29,7 +36,10 @@ export interface SortflowApi {
   onNodeStatus(
     cb: (nodeId: string, status: string, message?: string) => void,
   ): () => void;
-  autoSetup(path: string): Promise<{ scan: FolderScan; pipeline: Pipeline }>;
+  autoSetup(
+    path: string,
+    destBase?: string,
+  ): Promise<{ scan: FolderScan; pipeline: Pipeline }>;
   pickFolder(defaultPath?: string): Promise<string | null>;
   getPathForFile(file: File): string;
   isDirectory(path: string): Promise<boolean>;
@@ -50,7 +60,11 @@ export interface SortflowApi {
   setPipelineEnabled(
     id: string,
     enabled: boolean,
-  ): Promise<{ state: PipelineLibrarySummary; problems: string[] }>;
+  ): Promise<{
+    state: PipelineLibrarySummary;
+    problems: string[];
+    warnings?: string[];
+  }>;
 }
 
 const EMPTY: Pipeline = { nodes: [], edges: [] };
@@ -133,7 +147,25 @@ function createMockApi(): SortflowApi {
     },
     async setPipeline(p) {
       localStorage.setItem("sortflow-pipeline", JSON.stringify(p));
-      return { problems: [] };
+      return { problems: [], warnings: [] };
+    },
+    async previewPipeline(p) {
+      const moves = p.nodes.filter((n) => n.kind === "move");
+      return {
+        problems: [],
+        preview: {
+          total: 12,
+          wouldMove: moves.length > 0 ? 9 : 0,
+          needsClassify: p.nodes.some((n) => n.kind === "classify") ? 2 : 0,
+          unmatched: 3,
+          truncated: false,
+          buckets: moves.slice(0, 3).map((m, i) => ({
+            moveNodeId: m.id,
+            destination: (m.config as { destination: string }).destination,
+            count: 9 - i * 3,
+          })),
+        },
+      };
     },
     async listProposals() {
       return proposals;
@@ -233,9 +265,11 @@ function createMockApi(): SortflowApi {
     async setPipelineEnabled(id, enabled) {
       const record = library.pipelines.find((p) => p.id === id);
       if (record) record.enabled = enabled;
-      return { state: summary(), problems: [] };
+      return { state: summary(), problems: [], warnings: [] };
     },
-    async autoSetup(_path: string) {
+    async autoSetup(_path: string, destBase?: string) {
+      const dest = (fallback: string, label: string) =>
+        destBase ? `${destBase.replace(/\/+$/, "")}/${label}` : fallback;
       const scan: FolderScan = {
         total: 160,
         buckets: [
@@ -264,7 +298,10 @@ function createMockApi(): SortflowApi {
           {
             id: "auto-m-screenshots",
             kind: "move",
-            config: { destination: "~/Pictures/Screenshots", auto: false },
+            config: {
+              destination: dest("~/Pictures/Screenshots", "Screenshots"),
+              auto: false,
+            },
             position: { x: 660, y: 60 },
           },
           {
@@ -292,7 +329,10 @@ function createMockApi(): SortflowApi {
           {
             id: "auto-m-documents",
             kind: "move",
-            config: { destination: "~/Documents/Sorted", auto: false },
+            config: {
+              destination: dest("~/Documents/Sorted", "Documents"),
+              auto: false,
+            },
             position: { x: 660, y: 210 },
           },
         ],
