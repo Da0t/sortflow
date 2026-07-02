@@ -7,6 +7,9 @@ import { useFlowStore } from "./store";
 async function boot() {
   const pipeline = await api.getPipeline();
   useFlowStore.getState().loadPipeline(pipeline);
+  api.onNodeStatus((nodeId, status, message) => {
+    useFlowStore.getState().setNodeStatus(nodeId, status, message);
+  });
   const root = document.getElementById("root");
   if (root)
     createRoot(root).render(

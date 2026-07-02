@@ -5,9 +5,11 @@ import type {
   NodeConfig,
   WatchConfig,
 } from "@sortflow/engine";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../bridge";
 import { useFlowStore } from "../store";
+
+export const PROMOTION_THRESHOLD = 10;
 
 function TextField({
   label,
@@ -50,6 +52,13 @@ export function ConfigPanel() {
   const [problems, setProblems] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [streak, setStreak] = useState<number | null>(null);
+  useEffect(() => {
+    setStreak(null);
+    if (node?.data.kind === "move" && selectedId) {
+      void api.approvalStreak(selectedId).then(setStreak);
+    }
+  }, [selectedId, node?.data.kind]);
 
   const save = async () => {
     setSaveError(null);
@@ -162,6 +171,19 @@ export function ConfigPanel() {
                 value={c.auto}
                 onChange={(v) => set({ ...c, auto: v })}
               />
+              {streak !== null && (
+                <p className="sf-streak">
+                  Approved {streak} in a row
+                  {streak >= PROMOTION_THRESHOLD && !c.auto && (
+                    <button
+                      type="button"
+                      onClick={() => set({ ...c, auto: true })}
+                    >
+                      Make automatic
+                    </button>
+                  )}
+                </p>
+              )}
             </>
           );
         })()}
