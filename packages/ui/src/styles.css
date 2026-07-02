@@ -281,6 +281,34 @@ body {
   font-size: 12px;
 }
 
+.sf-delete-node {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-surface);
+  color: var(--sf-danger);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.sf-delete-node:hover {
+  background: var(--sf-danger-soft);
+  border-color: var(--sf-danger);
+}
+
+.sf-delete-node:focus-visible {
+  outline: 2px solid var(--sf-danger);
+  outline-offset: 2px;
+}
+
 .sf-problems {
   display: flex;
   flex-direction: column;

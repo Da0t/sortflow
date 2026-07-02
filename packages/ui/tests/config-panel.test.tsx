@@ -143,3 +143,21 @@ describe("ConfigPanel: destination chips", () => {
     expect(cfg.destination).toBe("~/Documents");
   });
 });
+
+describe("ConfigPanel: delete node", () => {
+  it("shows a Delete node button and removes the selected node on click", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    render(<ConfigPanel />);
+    fireEvent.click(screen.getByRole("button", { name: /delete node/i }));
+    expect(useFlowStore.getState().toPipeline().nodes).toHaveLength(0);
+    expect(useFlowStore.getState().selectedId).toBeNull();
+  });
+
+  it("hides the Delete node button when nothing is selected", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected(null);
+    render(<ConfigPanel />);
+    expect(screen.queryByRole("button", { name: /delete node/i })).toBeNull();
+  });
+});

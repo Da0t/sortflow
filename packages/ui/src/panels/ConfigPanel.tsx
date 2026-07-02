@@ -5,7 +5,7 @@ import type {
   NodeConfig,
   WatchConfig,
 } from "@sortflow/engine";
-import { FolderOpen, TriangleAlert } from "lucide-react";
+import { FolderOpen, Trash2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../bridge";
 import {
@@ -107,6 +107,7 @@ export function ConfigPanel() {
   const selectedId = useFlowStore((s) => s.selectedId);
   const node = useFlowStore((s) => s.nodes.find((n) => n.id === s.selectedId));
   const updateConfig = useFlowStore((s) => s.updateConfig);
+  const removeNode = useFlowStore((s) => s.removeNode);
   const toPipeline = useFlowStore((s) => s.toPipeline);
   const [problems, setProblems] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
@@ -296,6 +297,16 @@ export function ConfigPanel() {
             {saveError}
           </p>
         </div>
+      )}
+      {node && (
+        <button
+          type="button"
+          className="sf-delete-node"
+          onClick={() => removeNode(node.id)}
+        >
+          <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+          Delete node
+        </button>
       )}
     </div>
   );

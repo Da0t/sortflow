@@ -134,3 +134,34 @@ describe("store: addNode overrides", () => {
     );
   });
 });
+
+describe("store: removeNode", () => {
+  it("removes the node and every edge connected to it", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().removeNode("f1");
+    const pipeline = useFlowStore.getState().toPipeline();
+    expect(pipeline.nodes.map((n) => n.id)).toEqual(["w1", "m1"]);
+    expect(pipeline.edges).toHaveLength(0);
+  });
+
+  it("keeps unrelated edges intact", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().removeNode("m1");
+    const pipeline = useFlowStore.getState().toPipeline();
+    expect(pipeline.edges.map((e) => e.id)).toEqual(["e1"]);
+  });
+
+  it("clears the selection when the selected node is removed", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("f1");
+    useFlowStore.getState().removeNode("f1");
+    expect(useFlowStore.getState().selectedId).toBeNull();
+  });
+
+  it("preserves the selection when a different node is removed", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("w1");
+    useFlowStore.getState().removeNode("f1");
+    expect(useFlowStore.getState().selectedId).toBe("w1");
+  });
+});
