@@ -59,11 +59,11 @@ body {
 
 /* ── Palette ──────────────────────────────────────────────────── */
 .sf-palette {
-  width: 160px;
-  padding: 12px;
+  width: 180px;
+  padding: 14px 12px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   border-right: 1px solid var(--sf-border);
   background: var(--sf-surface);
 }
@@ -80,8 +80,8 @@ body {
 .sf-palette button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
+  gap: 10px;
+  padding: 8px 10px;
   border: none;
   border-radius: var(--sf-radius-sm);
   background: transparent;
@@ -166,10 +166,14 @@ body {
 
 .sf-handle-row {
   position: relative;
-  padding: 2px 12px;
+  padding: 3px 12px;
   text-align: right;
   color: var(--sf-text-muted);
   font-size: 10px;
+}
+
+.sf-handle-row:last-child {
+  padding-bottom: 10px;
 }
 
 .sf-badge {
@@ -197,9 +201,9 @@ body {
 
 /* ── Config panel ─────────────────────────────────────────────── */
 .sf-config {
-  width: 240px;
+  width: 260px;
   border-left: 1px solid var(--sf-border);
-  padding: 12px;
+  padding: 16px;
   background: var(--sf-surface);
   overflow-y: auto;
 }
@@ -208,22 +212,22 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: var(--sf-text);
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--sf-border);
 }
 
 .sf-field {
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   font-size: 12px;
   color: var(--sf-text);
 }
 
 .sf-field input:not([type="checkbox"]) {
   width: 100%;
-  margin-top: 4px;
-  padding: 6px 8px;
+  margin-top: 5px;
+  padding: 7px 10px;
   border: 1px solid var(--sf-border);
   border-radius: var(--sf-radius-sm);
   font-size: 12px;
@@ -246,7 +250,8 @@ body {
 
 .sf-save {
   width: 100%;
-  padding: 8px;
+  margin-top: 8px;
+  padding: 9px;
   border: none;
   border-radius: var(--sf-radius-sm);
   background: var(--sf-primary);
@@ -323,7 +328,7 @@ body {
 .sf-history {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 12px;
+  padding: 12px 16px;
   font-size: 12px;
 }
 
@@ -341,7 +346,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--sf-text-muted);
-  margin: 0 0 8px;
+  margin: 0 0 10px;
 }
 
 .sf-tray ul,
@@ -354,9 +359,9 @@ body {
 .sf-tray li,
 .sf-history li {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
-  padding: 6px 4px;
+  padding: 6px 8px;
   border-radius: var(--sf-radius-sm);
   transition: background-color 150ms ease;
 }
@@ -448,6 +453,7 @@ body {
 /* ── Dock action buttons ──────────────────────────────────────── */
 .sf-btn-approve,
 .sf-btn-approve-all {
+  margin-bottom: 8px;
   padding: 3px 10px;
   border-radius: var(--sf-radius-sm);
   font-size: 12px;
@@ -522,6 +528,51 @@ body {
   outline-offset: 2px;
 }
 
+/* ── Edges ────────────────────────────────────────────────────── */
+.react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 6 4;
+  animation: sf-flow 0.7s linear infinite;
+  transition: stroke 150ms ease, stroke-width 150ms ease;
+}
+
+@keyframes sf-flow {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--sf-primary);
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--sf-primary);
+  stroke-width: 2;
+}
+
+/* Executed-route highlight (store sets animated: true for 3s) */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke: var(--sf-primary);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+  animation: sf-flow 0.35s linear infinite;
+}
+
+/* In-progress connection line while dragging from a handle */
+.react-flow__connection-path {
+  stroke: var(--sf-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 6 4;
+  animation: sf-flow 0.7s linear infinite;
+}
+
 /* ── Connection handles ──────────────────────────────────────── */
 .react-flow__handle {
   width: 11px;
@@ -570,6 +621,7 @@ input:focus-visible {
   * {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
 
