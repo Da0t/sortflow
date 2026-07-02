@@ -24,9 +24,8 @@ function FileBrowser({
   reloadTick: number;
   onMoved: () => void;
 }) {
-  const [root, setRoot] = useState(
-    side === "left" ? "~/Downloads" : "~/Desktop",
-  );
+  // Left pane starts at the whole home tree; right pane at the Desktop.
+  const [root, setRoot] = useState(side === "left" ? "~" : "~/Desktop");
   const [entriesByPath, setEntriesByPath] = useState<Record<string, FsEntry[]>>(
     {},
   );
@@ -128,7 +127,26 @@ function FileBrowser({
             )}
             <span className="sf-folder-name">{entry.name}</span>
           </button>
-          {isOpen && kids !== undefined && renderEntries(kids, depth + 1)}
+          {isOpen && kids === undefined && (
+            <span
+              className="sf-folder-empty"
+              style={{ paddingLeft: 20 + (depth + 1) * 14 }}
+            >
+              Loading…
+            </span>
+          )}
+          {isOpen && kids !== undefined && kids.length === 0 && (
+            <span
+              className="sf-folder-empty"
+              style={{ paddingLeft: 20 + (depth + 1) * 14 }}
+            >
+              Empty folder
+            </span>
+          )}
+          {isOpen &&
+            kids !== undefined &&
+            kids.length > 0 &&
+            renderEntries(kids, depth + 1)}
         </div>
       );
     });
