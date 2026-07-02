@@ -40,8 +40,10 @@ export function ReviewTray() {
         <button
           type="button"
           onClick={() => {
-            for (const p of pending)
-              void api.approve(p.id).then(() => refresh());
+            void (async () => {
+              await Promise.all(pending.map((p) => api.approve(p.id)));
+              await refresh();
+            })();
           }}
         >
           Approve all ({pending.length})

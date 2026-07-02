@@ -38,6 +38,9 @@ export class Engine extends EventEmitter {
   private watcher: FolderWatcher;
   private pipeline: Pipeline = { nodes: [], edges: [] };
   private now: () => number;
+  /** Serializes every file move (approve + undo) so two moves can never run
+   * concurrently and race the unique-destination check into an overwrite. */
+  private moveChain: Promise<unknown> = Promise.resolve();
 
   constructor(opts: EngineOptions) {
     super();
@@ -90,6 +93,18 @@ export class Engine extends EventEmitter {
     await this.watcher.close();
   }
 
+  /** Runs a move exclusively: waits for any in-flight move (success or failure)
+   * before starting, so file moves are strictly serialized within one Engine. */
+  private runExclusive<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.moveChain.then(() => task());
+    // Keep the chain alive regardless of this task's outcome.
+    this.moveChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
   private async handleFile(
     watchNodeId: string,
     file: IncomingFile,
@@ -130,15 +145,17 @@ export class Engine extends EventEmitter {
     if (!p || p.status !== "pending") return;
     await this.proposalStore.setStatus(proposalId, "approved");
     try {
-      const entry = await executeMove(
-        {
-          id: proposalId,
-          from: p.filePath,
-          toDir: p.destDir,
-          moveNodeId: p.moveNodeId,
-        },
-        this.journal,
-        { now: this.now },
+      const entry = await this.runExclusive(() =>
+        executeMove(
+          {
+            id: proposalId,
+            from: p.filePath,
+            toDir: p.destDir,
+            moveNodeId: p.moveNodeId,
+          },
+          this.journal,
+          { now: this.now },
+        ),
       );
       await this.proposalStore.setStatus(proposalId, "executed");
       this.emit(
@@ -163,7 +180,9 @@ export class Engine extends EventEmitter {
   }
 
   async undo(journalEntryId: string): Promise<JournalEntry> {
-    return undoMove(journalEntryId, this.journal, { now: this.now });
+    return this.runExclusive(() =>
+      undoMove(journalEntryId, this.journal, { now: this.now }),
+    );
   }
 
   listProposals(): Proposal[] {

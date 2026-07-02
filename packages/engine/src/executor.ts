@@ -1,3 +1,4 @@
+import { constants } from "node:fs";
 import { copyFile, mkdir, rename, unlink } from "node:fs/promises";
 import { basename, dirname } from "node:path";
 import type { Journal } from "./journal";
@@ -38,7 +39,9 @@ async function moveWithFallback(
     await (renameFn ?? rename)(from, to);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "EXDEV") {
-      await copyFile(from, to);
+      // COPYFILE_EXCL fails (EEXIST) rather than clobbering an existing file,
+      // preserving the never-overwrite invariant on the cross-device path too.
+      await copyFile(from, to, constants.COPYFILE_EXCL);
       await unlink(from);
     } else {
       throw err;
