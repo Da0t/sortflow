@@ -3,6 +3,7 @@ import { Filter, FolderOutput, Inbox, Sparkles } from "lucide-react";
 import { useState } from "react";
 import type { ReactElement } from "react";
 import { api } from "../bridge";
+import { loadDestBase, saveDestBase } from "../lib/destBase";
 import { useFlowStore } from "../store";
 import { FolderTree } from "./FolderTree";
 import { GenerateSection } from "./GenerateSection";
@@ -31,26 +32,6 @@ const KINDS: Array<{ kind: NodeKind; label: string; icon: ReactElement }> = [
 ];
 
 const FOLDERS = ["~/Downloads", "~/Desktop", "~/Documents"];
-
-const DEST_KEY = "sf-autosetup-dest";
-
-/** Storage access is guarded like ConfigPanel's recents: unavailable storage
- * (e.g. in tests) just means the choice doesn't persist. */
-function loadDestBase(): string {
-  try {
-    return window.localStorage.getItem(DEST_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function saveDestBase(value: string): void {
-  try {
-    window.localStorage.setItem(DEST_KEY, value);
-  } catch {
-    // Not persisted — still applies for this session.
-  }
-}
 
 /** Preset bases for where Auto Setup sends sorted files. "" = per-category
  * system folders (Pictures, Documents, …). */

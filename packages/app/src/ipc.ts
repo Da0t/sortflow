@@ -91,11 +91,34 @@ export function registerIpc(
 
   ipcMain.handle(
     "pipeline:generate",
-    async (_evt, description: string, model?: string) => {
+    async (_evt, description: string, destBase?: string, model?: string) => {
+      // Ground the model in the user's real folder names so drafted
+      // destinations reuse them instead of inventing new spellings.
+      const home = os.homedir();
+      const listDirs = async (p: string) => {
+        try {
+          return (await readdir(p, { withFileTypes: true }))
+            .filter((d) => d.isDirectory() && !d.name.startsWith("."))
+            .map((d) => d.name)
+            .slice(0, 30);
+        } catch {
+          return [];
+        }
+      };
+      const existingFolders: string[] = [];
+      if (destBase) {
+        const kids = await listDirs(destBase.replace(/^~/, home));
+        if (kids.length > 0)
+          existingFolders.push(`${destBase}: ${kids.join(", ")}`);
+      }
+      const homeKids = await listDirs(home);
+      if (homeKids.length > 0)
+        existingFolders.push(`~: ${homeKids.join(", ")}`);
       try {
         const pipeline = await new OllamaGenerator().generate(
           description,
           model ?? "llama3.2:3b",
+          { destBase, existingFolders },
         );
         return { pipeline, error: null };
       } catch (err) {

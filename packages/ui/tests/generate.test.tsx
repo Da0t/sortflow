@@ -18,7 +18,10 @@ describe("GenerateSection", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /draft with ai/i }));
     await waitFor(() => {
-      expect(spy).toHaveBeenCalledWith("gifs from downloads go to desktop");
+      expect(spy).toHaveBeenCalledWith(
+        "gifs from downloads go to desktop",
+        undefined,
+      );
     });
     await waitFor(() => {
       // The mock api returns a watch→filter→move draft.

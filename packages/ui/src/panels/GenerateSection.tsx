@@ -1,6 +1,7 @@
 import { Wand2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../bridge";
+import { loadDestBase } from "../lib/destBase";
 import { useFlowStore } from "../store";
 
 /**
@@ -19,7 +20,12 @@ export function GenerateSection() {
     setBusy(true);
     setError(null);
     try {
-      const result = await api.generatePipeline(text);
+      // Pass the Sort-into preference so drafted destinations land where
+      // the user actually organizes.
+      const result = await api.generatePipeline(
+        text,
+        loadDestBase() || undefined,
+      );
       if (result.pipeline) {
         useFlowStore.getState().loadPipeline(result.pipeline);
       } else {

@@ -53,6 +53,27 @@ describe("coerceSpec", () => {
     expect(() => coerceSpec("not an object")).toThrow(/not a JSON object/);
   });
 
+  it("hoists a classify block the model nested inside a rule", () => {
+    // Observed llama3.2:3b failure mode: classify emitted as a rule property.
+    const spec = coerceSpec({
+      rules: [
+        { label: "GIFs", extensions: [".gif"], destination: "~/Desktop/Memes" },
+        {
+          label: "Receipts",
+          namePattern: "*receipt*",
+          classify: {
+            categories: ["Receipts"],
+            destination: "~/Desktop/Receipts",
+            guidance: "screenshots of purchases",
+          },
+        },
+      ],
+    });
+    expect(spec.rules).toHaveLength(1); // the destination-less rule is dropped
+    expect(spec.classify?.categories).toEqual(["Receipts"]);
+    expect(spec.classify?.guidance).toBe("screenshots of purchases");
+  });
+
   it("keeps a valid classify block and rejects an empty one", () => {
     const spec = coerceSpec({
       rules: [],
@@ -106,18 +127,34 @@ describe("specToPipeline", () => {
     ).toBeGreaterThanOrEqual(160);
   });
 
-  it("passes the user's description into the classify node as guidance", () => {
+  it("uses the spec's distilled guidance as classify instructions", () => {
     const pipeline = specToPipeline(
       coerceSpec({
         rules: [],
-        classify: { categories: ["Memes"], destination: "~/D/{category}" },
+        classify: {
+          categories: ["Memes"],
+          destination: "~/D/{category}",
+          guidance: "memes are funny images",
+        },
       }),
-      "memes are funny images",
     );
     const classify = pipeline.nodes.find((n) => n.kind === "classify");
     expect((classify?.config as { instructions?: string }).instructions).toBe(
       "memes are funny images",
     );
+  });
+
+  it("omits classify instructions when the spec has no guidance", () => {
+    const pipeline = specToPipeline(
+      coerceSpec({
+        rules: [],
+        classify: { categories: ["Memes"], destination: "~/D/{category}" },
+      }),
+    );
+    const classify = pipeline.nodes.find((n) => n.kind === "classify");
+    expect(
+      (classify?.config as { instructions?: string }).instructions,
+    ).toBeUndefined();
   });
 
   it("wires every classify category into one move node", () => {
@@ -157,6 +194,19 @@ describe("OllamaGenerator", () => {
     const pipeline = await generator.generate("gifs to desktop", "m");
     expect(validatePipeline(pipeline)).toEqual([]);
     expect(fetchFn).toHaveBeenCalledOnce();
+  });
+
+  it("grounds the prompt in the user's base folder and existing names", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(ok(gifSpec));
+    const generator = new OllamaGenerator("http://x", fetchFn);
+    await generator.generate("gifs to desktop", "m", {
+      destBase: "~/Desktop",
+      existingFolders: ["~/Desktop: GIFs, School, Receipts"],
+    });
+    const prompt = JSON.parse(fetchFn.mock.calls[0][1].body as string)
+      .prompt as string;
+    expect(prompt).toContain("destinations under ~/Desktop");
+    expect(prompt).toContain("~/Desktop: GIFs, School, Receipts");
   });
 
   it("feeds the failure back and retries on bad output", async () => {

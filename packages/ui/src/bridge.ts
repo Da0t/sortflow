@@ -23,9 +23,11 @@ export interface SortflowApi {
   previewPipeline(
     p: Pipeline,
   ): Promise<{ problems: string[]; preview?: PipelinePreview }>;
-  /** Draft a pipeline from a natural-language description via local Ollama. */
+  /** Draft a pipeline from a natural-language description via local Ollama.
+   * destBase grounds destinations in the user's Sort-into preference. */
   generatePipeline(
     description: string,
+    destBase?: string,
     model?: string,
   ): Promise<{ pipeline: Pipeline | null; error: string | null }>;
   listProposals(): Promise<Proposal[]>;

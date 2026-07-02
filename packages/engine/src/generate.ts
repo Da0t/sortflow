@@ -19,8 +19,17 @@ export interface GeneratedSpec {
   watch: string;
   recursive?: boolean;
   rules: GeneratedRule[];
-  /** Only for requests needing judgment beyond extensions/names. */
-  classify?: { categories: string[]; destination: string };
+  /** Only for requests needing judgment beyond extensions/names. `guidance`
+   * is a distilled one-liner for the classifier — NOT the whole request. */
+  classify?: { categories: string[]; destination: string; guidance?: string };
+}
+
+/** Grounding for the model so drafts match how the user already organizes. */
+export interface GenerateContext {
+  /** Preferred destination base, e.g. "~/Desktop". */
+  destBase?: string;
+  /** Existing folder listings, e.g. "~/Desktop: GIFs, School, Receipts". */
+  existingFolders?: string[];
 }
 
 /** Normalize ".GIF"/"gif" → ".gif"; drop empties. */
@@ -62,9 +71,21 @@ export function coerceSpec(raw: unknown): GeneratedSpec {
       destination,
     });
   }
+  // Small models sometimes nest the classify block inside a rule instead of
+  // at the top level — hoist the first one found so the intent isn't lost.
+  const classifyRaw =
+    typeof o.classify === "object" && o.classify !== null
+      ? o.classify
+      : rulesRaw
+          .map((r) =>
+            typeof r === "object" && r !== null
+              ? (r as Record<string, unknown>).classify
+              : undefined,
+          )
+          .find((c) => typeof c === "object" && c !== null);
   let classify: GeneratedSpec["classify"];
-  if (typeof o.classify === "object" && o.classify !== null) {
-    const c = o.classify as Record<string, unknown>;
+  if (typeof classifyRaw === "object" && classifyRaw !== null) {
+    const c = classifyRaw as Record<string, unknown>;
     const categories = Array.isArray(c.categories)
       ? c.categories
           .filter((x): x is string => typeof x === "string")
@@ -73,7 +94,7 @@ export function coerceSpec(raw: unknown): GeneratedSpec {
       : [];
     const destination = str(c.destination);
     if (categories.length > 0 && destination) {
-      classify = { categories, destination };
+      classify = { categories, destination, guidance: str(c.guidance) };
     }
   }
   if (rules.length === 0 && !classify) {
@@ -90,11 +111,7 @@ export function coerceSpec(raw: unknown): GeneratedSpec {
  * category handles all feed one move node (its destination usually contains
  * {category}).
  */
-export function specToPipeline(
-  spec: GeneratedSpec,
-  /** Original user request — becomes the classify node's guidance. */
-  description?: string,
-): Pipeline {
+export function specToPipeline(spec: GeneratedSpec): Pipeline {
   const nodes: Pipeline["nodes"] = [
     {
       id: "gen-w",
@@ -158,7 +175,9 @@ export function specToPipeline(
       config: {
         categories: spec.classify.categories,
         model: "llama3.2:3b",
-        ...(description ? { instructions: description } : {}),
+        ...(spec.classify.guidance
+          ? { instructions: spec.classify.guidance }
+          : {}),
       },
       position: { x: 340, y },
     });
@@ -193,8 +212,14 @@ const PROMPT_HEADER = `You convert a file-organization request into JSON. Reply 
  "rules": [{"label": "<short name>", "extensions": [".gif"], "namePattern": null, "destination": "~/Desktop/GIFs"}],
  "classify": null}
 
-Rules are checked in order; a file goes to the first rule it matches. A rule matches by file extensions and/or namePattern (a glob like "*invoice*", case-insensitive). Destinations are folders; use ~/ for home-relative paths.
-Set "classify" (instead of null) ONLY when the request needs AI judgment beyond extensions and name patterns, as {"categories": ["Memes", "Documents"], "destination": "~/Desktop/{category}"}.`;
+Constraints:
+- One rule per distinct instruction in the request. Never merge unrelated file types into one rule.
+- Rules are checked in order; a file goes to the first rule it matches — by extensions and/or namePattern (a case-insensitive glob like "*invoice*").
+- Destinations are folders; use ~/ for home-relative paths. Name new folders in Title Case, and REUSE the user's existing folders when they fit the request.
+- Set "classify" (instead of null) ONLY when the request needs AI judgment beyond extensions and name patterns, as {"categories": ["Memes", "School"], "destination": "~/Desktop/{category}", "guidance": "<one sentence telling the classifier how to tell the categories apart>"}. Do not use classify for anything a rule can express.
+
+Example request: "screenshots from Downloads go to Desktop/Screenshots, zips to Archives"
+Example reply: {"watch": "~/Downloads", "recursive": false, "rules": [{"label": "Screenshots", "extensions": [".png", ".jpg", ".jpeg"], "namePattern": "*screenshot*", "destination": "~/Desktop/Screenshots"}, {"label": "Archives", "extensions": [".zip"], "namePattern": null, "destination": "~/Desktop/Archives"}], "classify": null}`;
 
 /**
  * Ask a local Ollama model to draft a pipeline from a natural-language
@@ -225,20 +250,35 @@ export class OllamaGenerator {
     return data.response ?? "";
   }
 
-  async generate(description: string, model: string): Promise<Pipeline> {
-    let prompt = `${PROMPT_HEADER}\n\nRequest: ${description}`;
+  async generate(
+    description: string,
+    model: string,
+    context: GenerateContext = {},
+  ): Promise<Pipeline> {
+    const grounding = [
+      context.destBase
+        ? `The user prefers destinations under ${context.destBase} unless the request says otherwise.`
+        : "",
+      context.existingFolders?.length
+        ? `The user's existing folders — reuse these exact names when they fit:\n${context.existingFolders.join("\n")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const base = `${PROMPT_HEADER}${grounding ? `\n\n${grounding}` : ""}\n\nRequest: ${description}`;
+    let prompt = base;
     let lastError = "";
     for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
       const text = await this.request(prompt, model);
       try {
         const spec = coerceSpec(JSON.parse(text));
-        const pipeline = specToPipeline(spec, description);
+        const pipeline = specToPipeline(spec);
         const problems = validatePipeline(pipeline);
         if (problems.length > 0) throw new Error(problems.join("; "));
         return pipeline;
       } catch (err) {
         lastError = err instanceof Error ? err.message : String(err);
-        prompt = `${PROMPT_HEADER}\n\nRequest: ${description}\n\nYour previous reply was rejected: ${lastError}. Reply with corrected JSON only.`;
+        prompt = `${base}\n\nYour previous reply was rejected: ${lastError}. Reply with corrected JSON only.`;
       }
     }
     throw new Error(
