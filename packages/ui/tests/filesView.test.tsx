@@ -171,6 +171,31 @@ describe("FilesView (bubbles)", () => {
     expect(await screen.findByText("essay.txt")).toBeTruthy();
   });
 
+  it("hides a specific folder and brings it back via Hidden reveal", async () => {
+    mockListing();
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    // Mute the Documents folder entirely.
+    fireEvent.click(
+      container.querySelector('[aria-label="Hide Documents"]') as HTMLElement,
+    );
+    await waitFor(() => expect(screen.queryByText("Documents")).toBeNull());
+    // The Hidden pill appears; toggling it reveals the folder dimmed.
+    fireEvent.click(screen.getByRole("button", { name: /hidden: 1/i }));
+    expect(await screen.findByText("Documents")).toBeTruthy();
+    expect(container.querySelector(".sf-bubble-hidden")).toBeTruthy();
+    // Unhide restores it fully and the pill disappears.
+    fireEvent.click(
+      container.querySelector(
+        '[aria-label="Show Documents again"]',
+      ) as HTMLElement,
+    );
+    await waitFor(() =>
+      expect(container.querySelector(".sf-bubble-hidden")).toBeNull(),
+    );
+    expect(screen.queryByRole("button", { name: /hidden:/i })).toBeNull();
+  });
+
   it("the back button returns to the canvas view", async () => {
     mockListing();
     useFlowStore.getState().setView("files");

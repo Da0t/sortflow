@@ -13,6 +13,8 @@ import {
 } from "@xyflow/react";
 import {
   ArrowLeft,
+  Eye,
+  EyeOff,
   File,
   Folder,
   FolderPlus,
@@ -141,6 +143,28 @@ function saveHiddenKinds(kinds: ReadonlySet<string>): void {
   }
 }
 
+const HIDDEN_PATHS_KEY = "sf-files-hidden-paths";
+
+function loadHiddenPaths(): Set<string> {
+  try {
+    return new Set(
+      JSON.parse(
+        window.localStorage.getItem(HIDDEN_PATHS_KEY) ?? "[]",
+      ) as string[],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenPaths(paths: ReadonlySet<string>): void {
+  try {
+    window.localStorage.setItem(HIDDEN_PATHS_KEY, JSON.stringify([...paths]));
+  } catch {
+    // Session-only.
+  }
+}
+
 type BubbleData = {
   path: string;
   name: string;
@@ -152,6 +176,8 @@ type BubbleData = {
   onDropInto: (dest: string, e: React.DragEvent) => void;
   onTrash: (path: string, name: string) => void;
   onStartCreate: (path: string) => void;
+  onHideToggle: (path: string) => void;
+  hidden: boolean;
   dropTarget: string | null;
 };
 
@@ -183,8 +209,8 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
   return (
     <div
       className={`sf-bubble${data.isRoot ? " sf-bubble-root" : ""}${
-        data.dropTarget === data.path ? " sf-btree-drop" : ""
-      }`}
+        data.hidden ? " sf-bubble-hidden" : ""
+      }${data.dropTarget === data.path ? " sf-btree-drop" : ""}`}
       title={data.path}
       draggable={!data.isRoot}
       onMouseEnter={() => data.onHover(data.path)}
@@ -226,6 +252,29 @@ function BubbleNode({ data }: NodeProps<Node<BubbleData, "bubble">>) {
         >
           <FolderPlus size={12} strokeWidth={2} aria-hidden="true" />
         </button>
+        {!data.isRoot && (
+          <button
+            type="button"
+            aria-label={
+              data.hidden ? `Show ${data.name} again` : `Hide ${data.name}`
+            }
+            title={
+              data.hidden
+                ? "Show this folder again"
+                : "Hide this folder from the view"
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              data.onHideToggle(data.path);
+            }}
+          >
+            {data.hidden ? (
+              <Eye size={12} strokeWidth={2} aria-hidden="true" />
+            ) : (
+              <EyeOff size={12} strokeWidth={2} aria-hidden="true" />
+            )}
+          </button>
+        )}
         {!data.isRoot && (
           <button
             type="button"
@@ -337,7 +386,23 @@ export function FilesView() {
   const [newName, setNewName] = useState("");
   const [hiddenKinds, setHiddenKinds] =
     useState<ReadonlySet<string>>(loadHiddenKinds);
+  const [hiddenPaths, setHiddenPaths] =
+    useState<ReadonlySet<string>>(loadHiddenPaths);
+  const [showHidden, setShowHidden] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const onHideToggle = useCallback((path: string) => {
+    setHiddenPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      saveHiddenPaths(next);
+      return next;
+    });
+  }, []);
 
   const toggleKind = useCallback((key: string) => {
     setHiddenKinds((prev) => {
@@ -508,7 +573,9 @@ export function FilesView() {
     // Subtree width of the pinned-folder tree.
     const width = (path: string): number => {
       if (!pinned.has(path)) return BUBBLE_W;
-      const kids = folderChildren(path);
+      const kids = folderChildren(path).filter(
+        (k) => showHidden || !hiddenPaths.has(k.path),
+      );
       if (kids.length === 0) return BUBBLE_W;
       const total =
         kids.reduce((sum, k) => sum + width(k.path), 0) +
@@ -539,11 +606,15 @@ export function FilesView() {
           onDropInto,
           onTrash,
           onStartCreate,
+          onHideToggle,
+          hidden: hiddenPaths.has(path),
           dropTarget,
         },
       });
       if (!pinned.has(path)) return;
-      const kids = folderChildren(path);
+      const kids = folderChildren(path).filter(
+        (k) => showHidden || !hiddenPaths.has(k.path),
+      );
       let x = xCenter - width(path) / 2;
       for (const kid of kids) {
         const w = width(kid.path);
@@ -560,11 +631,12 @@ export function FilesView() {
       : undefined;
     if (hovered && hoveredNode) {
       const contents = visibleEntries(hovered) ?? [];
-      // Folders already shown as bubbles (pinned parent) are not repeated.
-      const hidden = pinned.has(hovered)
-        ? contents.filter((e) => !e.isDirectory)
-        : contents;
-      const chips = hidden.slice(0, MAX_CHIPS);
+      // Folders already shown as bubbles (pinned parent) are not repeated,
+      // and folders the user muted stay out of the fan too.
+      const fanContents = (
+        pinned.has(hovered) ? contents.filter((e) => !e.isDirectory) : contents
+      ).filter((e) => !e.isDirectory || showHidden || !hiddenPaths.has(e.path));
+      const chips = fanContents.slice(0, MAX_CHIPS);
       const n = chips.length;
       const perRow = Math.ceil(n / 2);
       chips.forEach((entry, i) => {
@@ -638,6 +710,9 @@ export function FilesView() {
     dropTarget,
     creatingIn,
     newName,
+    hiddenPaths,
+    showHidden,
+    onHideToggle,
     folderChildren,
     visibleEntries,
     onHover,
@@ -697,6 +772,17 @@ export function FilesView() {
         >
           Other
         </button>
+        {hiddenPaths.size > 0 && (
+          <button
+            type="button"
+            className="sf-filter-pill sf-filter-hidden"
+            aria-pressed={showHidden}
+            title="Reveal hidden folders (dimmed) so you can bring them back"
+            onClick={() => setShowHidden((s) => !s)}
+          >
+            Hidden: {hiddenPaths.size}
+          </button>
+        )}
       </div>
       {error && (
         <p className="sf-generate-error" role="alert">

@@ -233,6 +233,11 @@ body {
   text-decoration: none;
 }
 
+.sf-filter-hidden {
+  margin-left: auto;
+  text-decoration: none;
+}
+
 /* Files canvas: folders as bubbles on a pannable React Flow canvas. */
 .sf-files-canvas {
   flex: 1;
@@ -269,6 +274,12 @@ body {
   border-color: var(--sf-primary);
   background: var(--sf-primary-soft);
   cursor: default;
+}
+
+/* A muted folder, revealed only while "Hidden: n" is toggled on. */
+.sf-bubble-hidden {
+  opacity: 0.45;
+  border-style: dashed;
 }
 
 .sf-bubble-count {
