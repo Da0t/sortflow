@@ -14,10 +14,13 @@ importers:
 
   packages/app:
     dependencies:
+      chokidar:
+        specifier: ^4.0.1
+        version: 4.0.3
+    devDependencies:
       '@sortflow/engine':
         specifier: workspace:*
         version: link:../engine
-    devDependencies:
       electron:
         specifier: ^37.0.0
         version: 37.10.3

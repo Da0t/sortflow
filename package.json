@@ -8,5 +8,8 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "esbuild"]
+  },
   "packageManager": "pnpm@10.4.0"
 }
