@@ -1,4 +1,5 @@
 import type { JournalEntry, Proposal } from "@sortflow/engine";
+import { History } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../bridge";
 
@@ -31,7 +32,10 @@ export function HistoryPanel() {
 
   return (
     <div className="sf-history">
-      <h3>History</h3>
+      <h3>
+        <History size={14} strokeWidth={2} aria-hidden="true" />
+        History
+      </h3>
       {error && <p className="sf-error">{error}</p>}
       {entries.length === 0 && <p className="sf-empty">No moves yet.</p>}
       <ul>
@@ -44,7 +48,11 @@ export function HistoryPanel() {
               {e.from} → {e.to}
             </span>
             {e.status === "done" && (
-              <button type="button" onClick={() => undo(e.id)}>
+              <button
+                type="button"
+                className="sf-btn-neutral"
+                onClick={() => undo(e.id)}
+              >
                 Undo
               </button>
             )}

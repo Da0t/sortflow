@@ -1,5 +1,6 @@
 import type { FilterConfig } from "@sortflow/engine";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
+import { Filter } from "lucide-react";
 import type { FlowNode } from "../store";
 
 export function FilterNode({ data }: NodeProps<FlowNode>) {
@@ -14,7 +15,12 @@ export function FilterNode({ data }: NodeProps<FlowNode>) {
   return (
     <div className="sf-node sf-node-filter">
       <Handle type="target" position={Position.Left} />
-      <div className="sf-node-title">🔍 Filter</div>
+      <div className="sf-node-title">
+        <div className="sf-node-icon" aria-hidden="true">
+          <Filter size={16} strokeWidth={2} />
+        </div>
+        Filter
+      </div>
       <div className="sf-node-body">{summary}</div>
       <div className="sf-handle-row">
         <span>match</span>

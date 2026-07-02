@@ -5,6 +5,7 @@ import type {
   NodeConfig,
   WatchConfig,
 } from "@sortflow/engine";
+import { TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../bridge";
 import { useFlowStore } from "../store";
@@ -196,13 +197,19 @@ export function ConfigPanel() {
       {problems.length > 0 && (
         <div className="sf-problems">
           {problems.map((p) => (
-            <p key={p}>⚠ {p}</p>
+            <p key={p}>
+              <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+              {p}
+            </p>
           ))}
         </div>
       )}
       {saveError && (
         <div className="sf-problems" role="alert">
-          <p>⚠ {saveError}</p>
+          <p>
+            <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+            {saveError}
+          </p>
         </div>
       )}
     </div>

@@ -1,133 +1,324 @@
+/* ── Design tokens ────────────────────────────────────────────── */
+:root {
+  --sf-bg: #f7f7f9;
+  --sf-surface: #ffffff;
+  --sf-border: #e4e4ec;
+  --sf-text: #0f172a;
+  --sf-text-muted: #64748b;
+  --sf-primary: #2563eb;
+  --sf-primary-soft: #eff6ff;
+
+  /* Node accents */
+  --sf-watch: #3b82f6;
+  --sf-filter: #f59e0b;
+  --sf-classify: #8b5cf6;
+  --sf-move: #10b981;
+
+  /* Status */
+  --sf-danger: #ef4444;
+  --sf-danger-soft: #fef2f2;
+  --sf-success: #16a34a;
+  --sf-warn: #b45309;
+  --sf-warn-soft: #fffbeb;
+
+  /* Radii */
+  --sf-radius: 12px;
+  --sf-radius-sm: 8px;
+
+  /* Shadow */
+  --sf-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+
+  /* Font */
+  font-family: "InterVariable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+/* ── Reset ────────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
 }
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "InterVariable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: var(--sf-bg);
+  color: var(--sf-text);
 }
+
+/* ── App shell ────────────────────────────────────────────────── */
 .sf-app {
   display: flex;
   height: 100vh;
 }
+
 .sf-canvas {
   flex: 1;
+  background: var(--sf-bg);
 }
+
+/* ── Palette ──────────────────────────────────────────────────── */
 .sf-palette {
   width: 160px;
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  border-right: 1px solid #e2e2e8;
-  background: #fafafc;
+  gap: 2px;
+  border-right: 1px solid var(--sf-border);
+  background: var(--sf-surface);
 }
-.sf-palette button {
-  padding: 8px;
-  border: 1px solid #d0d0d8;
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
-}
-.sf-node {
-  border: 1px solid #c9c9d4;
-  border-radius: 10px;
-  background: #fff;
-  min-width: 170px;
-  font-size: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-.sf-node-title {
-  padding: 6px 10px;
+
+.sf-palette-label {
+  font-size: 11px;
   font-weight: 600;
-  border-bottom: 1px solid #eee;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sf-text-muted);
+  padding: 4px 4px 8px;
 }
+
+.sf-palette button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--sf-radius-sm);
+  background: transparent;
+  color: var(--sf-text);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 150ms ease;
+}
+
+.sf-palette button:hover {
+  background: #f1f5f9;
+}
+
+.sf-palette button:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}
+
+/* ── Nodes ────────────────────────────────────────────────────── */
+.sf-node {
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius);
+  background: var(--sf-surface);
+  min-width: 200px;
+  font-size: 12px;
+  box-shadow: var(--sf-shadow);
+}
+
+.react-flow__node.selected .sf-node {
+  border-color: var(--sf-primary);
+  box-shadow: 0 0 0 3px var(--sf-primary-soft);
+}
+
+.sf-node-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--sf-text);
+  border-bottom: 1px solid var(--sf-border);
+}
+
+.sf-node-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sf-node-watch .sf-node-icon {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--sf-watch);
+}
+
+.sf-node-filter .sf-node-icon {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--sf-filter);
+}
+
+.sf-node-classify .sf-node-icon {
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--sf-classify);
+}
+
+.sf-node-move .sf-node-icon {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--sf-move);
+}
+
 .sf-node-body {
-  padding: 6px 10px;
-  color: #555;
+  padding: 8px 12px 10px;
+  color: var(--sf-text-muted);
   word-break: break-all;
+  font-size: 12px;
 }
+
 .sf-handle-row {
   position: relative;
-  padding: 2px 10px;
+  padding: 2px 12px;
   text-align: right;
-  color: #888;
+  color: var(--sf-text-muted);
   font-size: 10px;
 }
+
 .sf-badge {
-  background: #16a34a;
-  color: #fff;
+  background: rgba(22, 163, 74, 0.12);
+  color: var(--sf-success);
   border-radius: 6px;
   padding: 1px 6px;
   font-size: 10px;
   margin-left: 6px;
 }
-.sf-node-watch .sf-node-title {
-  background: #eef6ff;
+
+.sf-node-warn-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  color: var(--sf-filter);
 }
-.sf-node-filter .sf-node-title {
-  background: #fff7ed;
+
+.sf-node-error-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  color: var(--sf-danger);
 }
-.sf-node-classify .sf-node-title {
-  background: #f5f3ff;
-}
-.sf-node-move .sf-node-title {
-  background: #ecfdf5;
-}
+
+/* ── Config panel ─────────────────────────────────────────────── */
 .sf-config {
   width: 240px;
-  border-left: 1px solid #e2e2e8;
+  border-left: 1px solid var(--sf-border);
   padding: 12px;
-  background: #fafafc;
+  background: var(--sf-surface);
   overflow-y: auto;
 }
+
+.sf-config h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sf-text);
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--sf-border);
+}
+
 .sf-field {
   display: block;
   margin-bottom: 10px;
   font-size: 12px;
-  color: #444;
+  color: var(--sf-text);
 }
+
 .sf-field input:not([type="checkbox"]) {
   width: 100%;
   margin-top: 4px;
-  padding: 6px;
-  border: 1px solid #d0d0d8;
-  border-radius: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--sf-text);
+  background: var(--sf-surface);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  outline: none;
 }
+
+.sf-field input:not([type="checkbox"]):focus {
+  border-color: var(--sf-primary);
+  box-shadow: 0 0 0 3px var(--sf-primary-soft);
+}
+
 .sf-field-check input {
   margin-right: 6px;
+  cursor: pointer;
 }
+
 .sf-save {
   width: 100%;
   padding: 8px;
   border: none;
-  border-radius: 8px;
-  background: #2563eb;
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-primary);
   color: #fff;
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background-color 150ms ease;
 }
+
+.sf-save:hover {
+  background: #1d4ed8;
+}
+
+.sf-save:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--sf-primary-soft);
+}
+
+.sf-save:active {
+  transform: scale(0.98);
+}
+
 .sf-saved {
-  color: #16a34a;
+  color: var(--sf-success);
   font-size: 12px;
 }
+
 .sf-problems {
-  color: #b45309;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--sf-warn);
+  font-size: 12px;
+  background: var(--sf-warn-soft);
+  border-radius: var(--sf-radius-sm);
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+.sf-problems p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.sf-error {
+  color: var(--sf-danger);
   font-size: 12px;
 }
+
+/* ── Shell / Dock ─────────────────────────────────────────────── */
 .sf-shell {
   display: flex;
   flex-direction: column;
   height: 100vh;
 }
+
 .sf-shell .sf-app {
   flex: 1;
   min-height: 0;
 }
+
 .sf-dock {
   display: flex;
   height: 180px;
-  border-top: 1px solid #e2e2e8;
-  background: #fff;
+  border-top: 1px solid var(--sf-border);
+  background: var(--sf-surface);
 }
+
 .sf-tray,
 .sf-history {
   flex: 1;
@@ -135,79 +326,210 @@ body {
   padding: 8px 12px;
   font-size: 12px;
 }
+
 .sf-tray {
-  border-right: 1px solid #e2e2e8;
+  border-right: 1px solid var(--sf-border);
 }
+
+.sf-tray h3,
+.sf-history h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sf-text-muted);
+  margin: 0 0 8px;
+}
+
 .sf-tray ul,
 .sf-history ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+
 .sf-tray li,
 .sf-history li {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 4px 0;
+  padding: 6px 4px;
+  border-radius: var(--sf-radius-sm);
+  transition: background-color 150ms ease;
 }
+
+.sf-tray li:hover,
+.sf-history li:hover {
+  background: #fafafc;
+}
+
+.sf-tray li.sf-failed {
+  background: var(--sf-danger-soft);
+}
+
 .sf-proposal {
   flex: 1;
   word-break: break-all;
+  font-size: 13px;
 }
+
 .sf-count {
-  background: #dc2626;
+  background: var(--sf-primary);
   color: #fff;
   border-radius: 10px;
   padding: 0 8px;
   font-size: 11px;
 }
+
 .sf-empty {
-  color: #999;
-}
-.sf-error {
-  color: #dc2626;
+  color: var(--sf-text-muted);
   font-size: 12px;
+  text-align: center;
+  padding: 12px 0;
 }
+
 .sf-failed {
-  color: #b91c1c;
+  color: var(--sf-danger);
 }
+
 .sf-status {
   border-radius: 6px;
   padding: 1px 6px;
   font-size: 10px;
   background: #eee;
+  white-space: nowrap;
 }
+
 .sf-status-done {
   background: #dcfce7;
+  color: var(--sf-success);
 }
+
 .sf-status-failed {
-  background: #fee2e2;
+  background: var(--sf-danger-soft);
+  color: var(--sf-danger);
 }
+
 .sf-status-undone {
-  background: #fef9c3;
+  background: var(--sf-warn-soft);
+  color: var(--sf-warn);
 }
+
 .sf-streak {
   font-size: 12px;
-  color: #555;
+  color: var(--sf-text-muted);
 }
+
 .sf-streak button {
   margin-left: 8px;
   padding: 2px 8px;
-  border: 1px solid #16a34a;
-  color: #16a34a;
-  background: #fff;
-  border-radius: 6px;
+  border: 1px solid var(--sf-primary);
+  color: var(--sf-primary);
+  background: var(--sf-primary-soft);
+  border-radius: var(--sf-radius-sm);
   cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: background-color 150ms ease;
+}
+
+.sf-streak button:hover {
+  background: #dbeafe;
+}
+
+.sf-streak button:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}
+
+/* ── Dock action buttons ──────────────────────────────────────── */
+.sf-btn-approve,
+.sf-btn-approve-all {
+  padding: 3px 10px;
+  border-radius: var(--sf-radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  background: var(--sf-primary-soft);
+  color: var(--sf-primary);
+  border: 1px solid var(--sf-primary);
+  transition: background-color 150ms ease;
+}
+
+.sf-btn-approve:hover,
+.sf-btn-approve-all:hover {
+  background: #dbeafe;
+}
+
+.sf-btn-approve:focus-visible,
+.sf-btn-approve-all:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}
+
+.sf-btn-neutral {
+  padding: 3px 10px;
+  border-radius: var(--sf-radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  background: var(--sf-surface);
+  color: var(--sf-text);
+  border: 1px solid var(--sf-border);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.sf-btn-neutral:hover {
+  background: #f8fafc;
+}
+
+.sf-btn-neutral:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}
+
+/* ── ReactFlow controls ───────────────────────────────────────── */
+.react-flow__controls {
+  border: 1px solid var(--sf-border) !important;
+  border-radius: var(--sf-radius-sm) !important;
+  box-shadow: var(--sf-shadow) !important;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: var(--sf-surface) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--sf-border) !important;
+  width: 28px !important;
+  height: 28px !important;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--sf-primary-soft) !important;
+}
+
+.react-flow__controls-button:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
 }
 
 /* ── Connection handles ──────────────────────────────────────── */
 .react-flow__handle {
   width: 11px;
   height: 11px;
-  background: #2563eb;
-  border: 2px solid #fff;
+  background: var(--sf-primary);
+  border: 2px solid var(--sf-surface);
 }
+
 .react-flow__handle:hover {
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25);
 }
@@ -217,8 +539,9 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
-  border: 1px solid #c9c9d4;
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  color: var(--sf-danger);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
@@ -227,10 +550,25 @@ body {
   justify-content: center;
   padding: 0;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 150ms ease;
 }
+
 .react-flow__edge:hover .sf-edge-delete,
 .sf-edge-delete-visible,
 .sf-edge-delete:focus-visible {
   opacity: 1;
+}
+
+/* ── Motion & a11y ────────────────────────────────────────────── */
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

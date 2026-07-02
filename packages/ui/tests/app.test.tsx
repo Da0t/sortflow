@@ -35,7 +35,7 @@ describe("App", () => {
   it("renders the palette and the loaded pipeline nodes", async () => {
     useFlowStore.getState().loadPipeline(demo);
     render(<App />);
-    expect(await screen.findByText("📥 Watch")).toBeTruthy();
+    expect(await screen.findByText("Watch")).toBeTruthy();
     expect(screen.getByText("~/Downloads")).toBeTruthy();
     expect(screen.getByText("~/Pictures/Screenshots")).toBeTruthy();
     expect(screen.getByRole("button", { name: /add watch/i })).toBeTruthy();

@@ -1,4 +1,5 @@
 import type { Proposal } from "@sortflow/engine";
+import { ListChecks } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../bridge";
 import { useFlowStore } from "../store";
@@ -43,6 +44,7 @@ export function ReviewTray() {
   return (
     <div className="sf-tray">
       <h3>
+        <ListChecks size={14} strokeWidth={2} aria-hidden="true" />
         Review{" "}
         {pending.length > 0 && (
           <span className="sf-count">{pending.length}</span>
@@ -55,6 +57,7 @@ export function ReviewTray() {
       {pending.length > 1 && (
         <button
           type="button"
+          className="sf-btn-approve-all"
           onClick={() => {
             setError(null);
             void (async () => {
@@ -76,10 +79,18 @@ export function ReviewTray() {
             <span className="sf-proposal">
               {p.fileName} → {p.destDir}
             </span>
-            <button type="button" onClick={() => guard(api.approve(p.id))}>
+            <button
+              type="button"
+              className="sf-btn-approve"
+              onClick={() => guard(api.approve(p.id))}
+            >
               Approve
             </button>
-            <button type="button" onClick={() => guard(api.reject(p.id))}>
+            <button
+              type="button"
+              className="sf-btn-neutral"
+              onClick={() => guard(api.reject(p.id))}
+            >
               Reject
             </button>
           </li>

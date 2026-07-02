@@ -1,4 +1,10 @@
-import { Background, Controls, type Edge, ReactFlow } from "@xyflow/react";
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  type Edge,
+  ReactFlow,
+} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useRef } from "react";
 import { DeletableEdge } from "./edges/DeletableEdge";
@@ -57,7 +63,12 @@ export default function App() {
             }}
             fitView
           >
-            <Background />
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={16}
+              size={1}
+              color="#d4d4dd"
+            />
             <Controls />
           </ReactFlow>
         </div>
