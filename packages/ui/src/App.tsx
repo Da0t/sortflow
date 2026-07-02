@@ -2,7 +2,9 @@ import { Background, Controls, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "./nodes";
 import { ConfigPanel } from "./panels/ConfigPanel";
+import { HistoryPanel } from "./panels/HistoryPanel";
 import { Palette } from "./panels/Palette";
+import { ReviewTray } from "./panels/ReviewTray";
 import { useFlowStore } from "./store";
 import "./styles.css";
 
@@ -15,24 +17,31 @@ export default function App() {
   const setSelected = useFlowStore((s) => s.setSelected);
 
   return (
-    <div className="sf-app">
-      <Palette />
-      <div className="sf-canvas">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onSelectionChange={(sel) => setSelected(sel.nodes[0]?.id ?? null)}
-          fitView
-        >
-          <Background />
-          <Controls />
-        </ReactFlow>
+    <div className="sf-shell">
+      <div className="sf-app">
+        <Palette />
+        <div className="sf-canvas">
+          {/* ReactFlow unchanged */}
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onSelectionChange={(sel) => setSelected(sel.nodes[0]?.id ?? null)}
+            fitView
+          >
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
+        <ConfigPanel />
       </div>
-      <ConfigPanel />
+      <div className="sf-dock">
+        <ReviewTray />
+        <HistoryPanel />
+      </div>
     </div>
   );
 }
