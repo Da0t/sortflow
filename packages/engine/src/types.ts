@@ -4,6 +4,9 @@ export interface WatchConfig {
   path: string;
   recursive: boolean;
   scanExisting?: boolean;
+  /** Also emit top-level folders as sortable units (review-only: folder
+   * moves are never auto-executed). */
+  includeFolders?: boolean;
 }
 
 export interface FilterConfig {
@@ -63,6 +66,7 @@ export interface IncomingFile {
   bytes: number;
   mtimeMs: number;
   birthtimeMs?: number; // file creation time; absent on filesystems that report 0
+  isDirectory?: boolean; // a folder being sorted as one unit
 }
 
 export type ProposalStatus =

@@ -1,4 +1,4 @@
-import { open } from "node:fs/promises";
+import { open, readdir } from "node:fs/promises";
 import type { ClassifyConfig, IncomingFile } from "./types";
 
 export const UNSURE = "unsure";
@@ -54,15 +54,30 @@ export class OllamaClassifier implements Classifier {
 
   async classify(file: IncomingFile, cfg: ClassifyConfig): Promise<string> {
     try {
-      const snippet = TEXT_EXTS.has(file.ext)
-        ? await readSnippet(file.path)
-        : "";
+      let snippet = "";
+      if (file.isDirectory) {
+        // A folder is judged by its name plus a listing of what's inside.
+        const children = (await readdir(file.path))
+          .filter((n) => !n.startsWith("."))
+          .slice(0, 30);
+        snippet = children.length > 0 ? `Contains: ${children.join(", ")}` : "";
+      } else if (TEXT_EXTS.has(file.ext)) {
+        snippet = await readSnippet(file.path);
+      }
       const prompt = [
-        "Classify this file into exactly one category.",
+        file.isDirectory
+          ? "Classify this folder into exactly one category."
+          : "Classify this file into exactly one category.",
         `Categories: ${cfg.categories.join(", ")}`,
         cfg.instructions ? `Guidance: ${cfg.instructions}` : "",
-        `Filename: ${file.name}`,
-        snippet ? `Content (first 1KB):\n${snippet}` : "",
+        file.isDirectory
+          ? `Folder name: ${file.name}`
+          : `Filename: ${file.name}`,
+        snippet
+          ? file.isDirectory
+            ? snippet
+            : `Content (first 1KB):\n${snippet}`
+          : "",
         'Reply with JSON: {"category": "<one of the categories, or unsure>"}',
       ]
         .filter(Boolean)

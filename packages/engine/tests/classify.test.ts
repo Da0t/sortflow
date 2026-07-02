@@ -80,6 +80,31 @@ describe("OllamaClassifier", () => {
     expect(body.messages[0].content).not.toContain("Guidance:");
   });
 
+  it("classifies a folder by name plus a listing of its contents", async () => {
+    const fetchFn = ollamaOk("School");
+    const c = new OllamaClassifier("http://127.0.0.1:11434", fetchFn);
+    const dir = await mkdtemp(join(tmpdir(), "sortflow-classify-dir-"));
+    await writeFile(join(dir, "CSE101_notes.md"), "x");
+    await writeFile(join(dir, "homework.pdf"), "x");
+    const folder: IncomingFile = {
+      path: dir,
+      name: "Spring Semester",
+      ext: "",
+      bytes: 0,
+      mtimeMs: 0,
+      isDirectory: true,
+    };
+    expect(await c.classify(folder, cfg)).toBe("School");
+    const body = JSON.parse(
+      (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0][1].body as string,
+    );
+    const prompt = body.messages[0].content as string;
+    expect(prompt).toContain("Classify this folder");
+    expect(prompt).toContain("Folder name: Spring Semester");
+    expect(prompt).toContain("CSE101_notes.md");
+    expect(prompt).toContain("homework.pdf");
+  });
+
   it("omits snippets for non-text files", async () => {
     const fetchFn = ollamaOk("School");
     const c = new OllamaClassifier("http://127.0.0.1:11434", fetchFn);

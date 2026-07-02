@@ -27,6 +27,36 @@ function collect(): {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+describe("FolderWatcher: folders", () => {
+  it("emits top-level folders when includeFolders is on — not the root, not nested", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sortflow-watch-"));
+    const { events, watcher } = collect();
+    watcher.watch("w1", { path: dir, recursive: false, includeFolders: true });
+    await sleep(300);
+
+    await mkdir(join(dir, "Project Alpha", "nested"), { recursive: true });
+    await sleep(800);
+
+    const dirs = events.filter((e) => e.file.isDirectory);
+    expect(dirs).toHaveLength(1);
+    expect(dirs[0].file.name).toBe("Project Alpha");
+    expect(dirs[0].file.ext).toBe("");
+    expect(dirs[0].file.path).toBe(join(dir, "Project Alpha"));
+  }, 10_000);
+
+  it("ignores folders entirely when includeFolders is off", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sortflow-watch-"));
+    const { events, watcher } = collect();
+    watcher.watch("w1", { path: dir, recursive: false });
+    await sleep(300);
+
+    await mkdir(join(dir, "SomeFolder"));
+    await sleep(800);
+
+    expect(events.filter((e) => e.file.isDirectory)).toHaveLength(0);
+  }, 10_000);
+});
+
 describe("FolderWatcher", () => {
   it("emits one event per new file, after the file stabilizes, with metadata", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sortflow-watch-"));

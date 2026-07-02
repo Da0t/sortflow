@@ -218,7 +218,9 @@ export class Engine extends EventEmitter {
         this.now(),
       );
       this.emit("proposal", proposal);
-      if (cfg.auto) await this.approve(proposal.id);
+      // Folders are never auto-executed: moving a whole directory is
+      // higher-stakes than one file, so it always goes through review.
+      if (cfg.auto && !file.isDirectory) await this.approve(proposal.id);
     } catch (err) {
       // A routing failure (e.g. a bad user-typed regex that slipped past
       // validation) must never become an unhandled rejection that kills the

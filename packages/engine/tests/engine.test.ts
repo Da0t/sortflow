@@ -103,6 +103,50 @@ describe("Engine", () => {
     expect(existsSync(join(inbox, "note.txt"))).toBe(true);
   }, 15_000);
 
+  it("folders become proposals but never auto-execute; approve moves the whole folder", async () => {
+    const { inbox, dest } = await setup(true);
+    if (!engine) throw new Error("setup failed");
+    const p: Pipeline = {
+      nodes: [
+        {
+          id: "w1",
+          kind: "watch",
+          config: { path: inbox, recursive: false, includeFolders: true },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "m1",
+          kind: "move",
+          config: { destination: dest, auto: true },
+          position: { x: 1, y: 0 },
+        },
+      ],
+      edges: [{ id: "e1", source: "w1", sourceHandle: "out", target: "m1" }],
+    };
+    await engine.start(p);
+    await sleep(300);
+
+    const next = nextProposal(engine);
+    await mkdir(join(inbox, "Trip Photos"));
+    await writeFile(join(inbox, "Trip Photos", "pic.txt"), "x");
+    const proposal = await next;
+
+    expect(proposal.fileName).toBe("Trip Photos");
+    expect(proposal.destDir).toBe(dest);
+    // The move node is automatic, but folders always wait for review.
+    await sleep(400);
+    expect(
+      engine.listProposals().find((q) => q.id === proposal.id)?.status,
+    ).toBe("pending");
+    expect(existsSync(join(inbox, "Trip Photos"))).toBe(true);
+
+    await engine.approve(proposal.id);
+    expect(existsSync(join(dest, "Trip Photos", "pic.txt"))).toBe(true);
+
+    await engine.undo(proposal.id);
+    expect(existsSync(join(inbox, "Trip Photos", "pic.txt"))).toBe(true);
+  }, 15_000);
+
   it("re-points pending proposals at the current pipeline on start", async () => {
     const { root, inbox, dest, pipeline } = await setup(false);
     if (!engine) throw new Error("setup failed");

@@ -240,6 +240,21 @@ export function ConfigPanel() {
                 value={c.scanExisting ?? false}
                 onChange={(v) => set({ ...c, scanExisting: v })}
               />
+              <CheckField
+                label="Also sort folders"
+                value={c.includeFolders ?? false}
+                onChange={(v) => set({ ...c, includeFolders: v })}
+              />
+              {c.includeFolders && (
+                <p
+                  className="sf-hint-muted"
+                  style={{ fontSize: 12, color: "var(--sf-text-muted)" }}
+                >
+                  Folders route through your graph like files — an AI Classify
+                  node judges them by name and contents. Folder moves always
+                  wait for your approval, even on automatic rules.
+                </p>
+              )}
             </>
           );
         })()}
