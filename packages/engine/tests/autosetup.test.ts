@@ -210,8 +210,27 @@ describe("suggestPipeline", () => {
     const mDoc = pipeline.nodes.find((n) => n.id === "auto-m-documents");
     expect(fImg?.position).toEqual({ x: 340, y: 60 });
     expect(mImg?.position).toEqual({ x: 660, y: 60 });
-    expect(fDoc?.position).toEqual({ x: 340, y: 210 });
-    expect(mDoc?.position).toEqual({ x: 660, y: 210 });
+    // Second row starts below the first row's estimated height — never a
+    // fixed 150px, which made tall filter nodes overlap.
+    expect(fDoc?.position).toEqual({ x: 340, y: 220 });
+    expect(mDoc?.position).toEqual({ x: 660, y: 220 });
+  });
+
+  it("gives long extension lists extra vertical room", () => {
+    const scan = {
+      total: 30,
+      buckets: [
+        { key: "documents", label: "Documents", count: 10 }, // 13 extensions
+        { key: "media", label: "Media", count: 10 },
+      ],
+    };
+    const pipeline = suggestPipeline("/watch", scan, { minCount: 1 });
+    const fDoc = pipeline.nodes.find((n) => n.id === "auto-f-documents");
+    const fMedia = pipeline.nodes.find((n) => n.id === "auto-f-media");
+    const gap = (fMedia?.position.y ?? 0) - (fDoc?.position.y ?? 0);
+    // The documents summary wraps to two lines, so its row is taller than
+    // the 160px minimum.
+    expect(gap).toBeGreaterThan(160);
   });
 
   it("expands ~ in destinations using opts.home", () => {

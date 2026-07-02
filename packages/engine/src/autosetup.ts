@@ -84,6 +84,23 @@ const BUCKETS: ReadonlyArray<{
   },
 ];
 
+/**
+ * Approximate rendered height of one filter+move rule row so stacked rules
+ * never overlap. The filter node is the tall one: ~34px title, ~18px body
+ * padding, its summary text wrapped at ~37 chars (12px font inside the
+ * UI's 260px node max-width), and ~50px of match/else handle rows.
+ */
+export function estimateRowHeight(def: {
+  extensions: string[];
+  namePattern?: string;
+}): number {
+  const summary = [def.extensions.join(" "), def.namePattern]
+    .filter(Boolean)
+    .join(" · ");
+  const lines = Math.max(1, Math.ceil(summary.length / 37));
+  return Math.max(160, 142 + lines * 16);
+}
+
 /** Return the canonical bucket key a file belongs to (first match wins). */
 function classifyFile(name: string, ext: string): string | null {
   const lowerName = name.toLowerCase();
@@ -190,6 +207,7 @@ export function suggestPipeline(
   const nodes: Pipeline["nodes"] = [watchNode];
   const edges: Pipeline["edges"] = [];
   let edgeN = 0;
+  let y = 60;
 
   for (let i = 0; i < included.length; i++) {
     const bucket = included[i];
@@ -198,7 +216,6 @@ export function suggestPipeline(
 
     const fId = `auto-f-${bucket.key}`;
     const mId = `auto-m-${bucket.key}`;
-    const y = 60 + i * 150;
 
     // Build FilterConfig for this bucket.
     const filterConfig: FilterConfig = { extensions: def.extensions };
@@ -251,6 +268,8 @@ export function suggestPipeline(
       sourceHandle: "match",
       target: mId,
     });
+
+    y += estimateRowHeight(def);
   }
 
   return { nodes, edges };
