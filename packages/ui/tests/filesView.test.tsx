@@ -23,8 +23,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("FilesView (node tree)", () => {
-  it("renders the Home node with its files and folders", async () => {
+describe("FilesView (connected tree)", () => {
+  it("renders one tree rooted at Home with files and folders", async () => {
     mockListing();
     render(<FilesView />);
     expect(await screen.findByText("Documents")).toBeTruthy();
@@ -32,47 +32,23 @@ describe("FilesView (node tree)", () => {
     expect(screen.getByText("Home")).toBeTruthy();
   });
 
-  // React Flow keeps nodes visibility:hidden until measured, and jsdom's
-  // stubbed ResizeObserver never measures — hidden elements have no
-  // accessible name, so in-node buttons are queried by attribute instead.
-  it("opening a subfolder spawns it as a connected node", async () => {
+  it("expands and collapses branches in place", async () => {
     mockListing();
-    const { container } = render(<FilesView />);
-    await screen.findByText("Documents");
-    fireEvent.click(
-      container.querySelector(
-        'button[aria-label="Open Documents"]',
-      ) as HTMLElement,
-    );
-    // The folder now exists as its own node card, listing its contents.
-    await screen.findByText("School");
-    expect(container.querySelector('[data-path="/u/Documents"]')).toBeTruthy();
-    // And can be closed again.
-    fireEvent.click(
-      container.querySelector(
-        'button[aria-label="Close Documents"]',
-      ) as HTMLElement,
-    );
-    await waitFor(() =>
-      expect(container.querySelector('[data-path="/u/Documents"]')).toBeNull(),
-    );
+    render(<FilesView />);
+    fireEvent.click(await screen.findByText("Documents"));
+    expect(await screen.findByText("School")).toBeTruthy();
+    fireEvent.click(screen.getByText("Documents"));
+    await waitFor(() => expect(screen.queryByText("School")).toBeNull());
   });
 
-  it("dropping an entry on a folder node performs a journaled move", async () => {
+  it("dragging a file onto a folder row performs a journaled move", async () => {
     mockListing();
     const move = vi.spyOn(api, "moveEntry").mockResolvedValue({ error: null });
-    const { container } = render(<FilesView />);
-    await screen.findByText("Documents");
-    fireEvent.click(
-      container.querySelector(
-        'button[aria-label="Open Documents"]',
-      ) as HTMLElement,
-    );
-    await screen.findByText("School");
-    const card = container.querySelector(
-      '[data-path="/u/Documents"]',
-    ) as HTMLElement;
-    fireEvent.drop(card, {
+    render(<FilesView />);
+    const folderRow = (await screen.findByText("Documents")).closest(
+      "button",
+    ) as HTMLButtonElement;
+    fireEvent.drop(folderRow, {
       dataTransfer: {
         getData: (t: string) => (t === FOLDER_MIME ? "/u/report.pdf" : ""),
       },
@@ -82,15 +58,34 @@ describe("FilesView (node tree)", () => {
     });
   });
 
+  it("dropping on the Home header moves into the home folder", async () => {
+    mockListing();
+    const move = vi.spyOn(api, "moveEntry").mockResolvedValue({ error: null });
+    render(<FilesView />);
+    const home = (await screen.findByText("Home")).closest(
+      "button",
+    ) as HTMLButtonElement;
+    fireEvent.drop(home, {
+      dataTransfer: {
+        getData: (t: string) =>
+          t === FOLDER_MIME ? "/u/Documents/School" : "",
+      },
+    });
+    await waitFor(() => {
+      expect(move).toHaveBeenCalledWith("/u/Documents/School", "~");
+    });
+  });
+
   it("shows the error when a move is refused", async () => {
     mockListing();
     vi.spyOn(api, "moveEntry").mockResolvedValue({
       error: "Can't move a folder into itself",
     });
-    const { container } = render(<FilesView />);
-    await screen.findByText("Documents");
-    const home = container.querySelector('[data-path="~"]') as HTMLElement;
-    fireEvent.drop(home, {
+    render(<FilesView />);
+    const folderRow = (await screen.findByText("Documents")).closest(
+      "button",
+    ) as HTMLButtonElement;
+    fireEvent.drop(folderRow, {
       dataTransfer: {
         getData: (t: string) => (t === FOLDER_MIME ? "/u/Documents" : ""),
       },

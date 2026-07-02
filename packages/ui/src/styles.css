@@ -203,51 +203,70 @@ body {
   color: var(--sf-text-muted);
 }
 
-.sf-files-canvas {
+/* One classic connected tree, Finder-outline style. */
+.sf-tree-scroll {
   flex: 1;
   min-height: 0;
+  overflow: auto;
+  margin: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-surface);
 }
 
-/* Folder-as-node cards on the Files canvas. */
-.sf-dirnode {
-  min-width: 220px;
-  max-width: 280px;
-}
-
-.sf-dirnode-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px 8px 10px;
-}
-
-.sf-dirnode-row {
+.sf-tree-scroll button.sf-file-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 4px;
+  width: 100%;
+  padding: 3px 6px;
+  border: none;
   border-radius: var(--sf-radius-sm);
-  font-size: 12px;
+  background: transparent;
   color: var(--sf-text);
+  font-size: 12.5px;
+  text-align: left;
   cursor: grab;
 }
 
-.sf-dirnode-row:hover {
+.sf-tree-scroll button.sf-file-row:hover {
   background: #f1f5f9;
 }
 
-.sf-dirnode-open {
-  display: flex;
-  margin-left: auto;
-  border: none;
-  background: transparent;
-  padding: 2px;
-  cursor: pointer;
-  color: var(--sf-text-muted);
+.sf-tree-scroll button.sf-tree-root {
+  font-weight: 600;
+  width: auto;
+  cursor: default;
 }
 
-.sf-dirnode-open:hover {
-  color: var(--sf-primary);
+/* Nested level: vertical guide line down the branch... */
+.sf-tree-children {
+  margin-left: 13px;
+  padding-left: 9px;
+  border-left: 1px solid var(--sf-border);
+}
+
+.sf-tree-item {
+  position: relative;
+}
+
+/* ...and a horizontal connector from the line to each row. */
+.sf-tree-children > .sf-tree-item > .sf-file-row::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  width: 8px;
+  height: 1px;
+  background: var(--sf-border);
+}
+
+.sf-file-row-drop {
+  outline: 2px dashed var(--sf-primary);
+  outline-offset: -2px;
+  background: var(--sf-primary-soft);
 }
 
 /* ── Unsaved-changes nudge ────────────────────────────────────── */
