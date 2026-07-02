@@ -80,7 +80,19 @@ export function registerIpc(
     const problems = validatePipeline(mergedWithDraft(pipeline));
     if (problems.length > 0) return { problems, warnings: [] };
     await library.savePipeline(library.summary().activeId, pipeline);
-    await restartEngine();
+    try {
+      await restartEngine();
+    } catch (err) {
+      // Surface the real reason in the panel instead of a raw IPC rejection.
+      return {
+        problems: [
+          `Saved, but the engine could not start: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ],
+        warnings: [],
+      };
+    }
     return { problems: [], warnings: detectWatchOverlaps(library.records()) };
   });
 
