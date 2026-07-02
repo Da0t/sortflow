@@ -150,6 +150,27 @@ describe("FilesView (bubbles)", () => {
     expect(trash).not.toHaveBeenCalled();
   });
 
+  it("toggling a kind off hides those files from fans and counts", async () => {
+    mockListing();
+    const { container } = render(<FilesView />);
+    await screen.findByText("Documents");
+    // essay.txt is a "Docs" kind — visible in the hover fan by default.
+    fireEvent.mouseEnter(
+      container.querySelector('[title="/u/Documents"]') as HTMLElement,
+    );
+    expect(await screen.findByText("essay.txt")).toBeTruthy();
+    // Toggle Docs off: the chip disappears, the folder chip remains.
+    fireEvent.click(screen.getByRole("button", { name: "Docs" }));
+    await waitFor(() => expect(screen.queryByText("essay.txt")).toBeNull());
+    expect(screen.getByText("School")).toBeTruthy();
+    // Toggle back on: it returns.
+    fireEvent.click(screen.getByRole("button", { name: "Docs" }));
+    fireEvent.mouseEnter(
+      container.querySelector('[title="/u/Documents"]') as HTMLElement,
+    );
+    expect(await screen.findByText("essay.txt")).toBeTruthy();
+  });
+
   it("the back button returns to the canvas view", async () => {
     mockListing();
     useFlowStore.getState().setView("files");

@@ -33,6 +33,114 @@ const SIB_GAP = 48;
 const CHIP_W = 130;
 const CHIP_FAN_Y = 88;
 
+const HIDDEN_KEY = "sf-files-hidden-kinds";
+
+/** File-kind toggles: hide noisy categories from fans and counts. */
+const KINDS: Array<{ key: string; label: string; exts: Set<string> }> = [
+  {
+    key: "images",
+    label: "Images",
+    exts: new Set([
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".gif",
+      ".heic",
+      ".webp",
+      ".bmp",
+      ".tiff",
+      ".tif",
+      ".svg",
+      ".avif",
+    ]),
+  },
+  {
+    key: "docs",
+    label: "Docs",
+    exts: new Set([
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx",
+      ".ppt",
+      ".pptx",
+      ".key",
+      ".pages",
+      ".numbers",
+      ".txt",
+      ".rtf",
+      ".md",
+      ".csv",
+      ".odt",
+      ".epub",
+    ]),
+  },
+  {
+    key: "video",
+    label: "Video",
+    exts: new Set([
+      ".mp4",
+      ".mov",
+      ".mkv",
+      ".avi",
+      ".webm",
+      ".m4v",
+      ".wmv",
+      ".flv",
+    ]),
+  },
+  {
+    key: "audio",
+    label: "Audio",
+    exts: new Set([".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg", ".aiff"]),
+  },
+  {
+    key: "archives",
+    label: "Archives",
+    exts: new Set([
+      ".zip",
+      ".tar",
+      ".gz",
+      ".tgz",
+      ".bz2",
+      ".xz",
+      ".rar",
+      ".7z",
+      ".dmg",
+      ".pkg",
+      ".mpkg",
+    ]),
+  },
+];
+
+function kindOf(name: string): string {
+  const dot = name.lastIndexOf(".");
+  const ext = dot > 0 ? name.slice(dot).toLowerCase() : "";
+  for (const kind of KINDS) {
+    if (kind.exts.has(ext)) return kind.key;
+  }
+  return "other";
+}
+
+function loadHiddenKinds(): Set<string> {
+  try {
+    return new Set(
+      JSON.parse(window.localStorage.getItem(HIDDEN_KEY) ?? "[]") as string[],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenKinds(kinds: ReadonlySet<string>): void {
+  try {
+    window.localStorage.setItem(HIDDEN_KEY, JSON.stringify([...kinds]));
+  } catch {
+    // Session-only.
+  }
+}
+
 type BubbleData = {
   path: string;
   name: string;
@@ -227,7 +335,35 @@ export function FilesView() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [hiddenKinds, setHiddenKinds] =
+    useState<ReadonlySet<string>>(loadHiddenKinds);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const toggleKind = useCallback((key: string) => {
+    setHiddenKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      saveHiddenKinds(next);
+      return next;
+    });
+  }, []);
+
+  /** Entries with toggled-off file kinds removed (folders always show). */
+  const visibleEntries = useCallback(
+    (path: string): FsEntry[] | undefined => {
+      const entries = entriesByPath[path];
+      if (!entries) return undefined;
+      if (hiddenKinds.size === 0) return entries;
+      return entries.filter(
+        (e) => e.isDirectory || !hiddenKinds.has(kindOf(e.name)),
+      );
+    },
+    [entriesByPath, hiddenKinds],
+  );
 
   const load = useCallback(async (path: string) => {
     const kids = await api.listEntries(path);
@@ -396,7 +532,7 @@ export function FilesView() {
           path,
           name,
           isRoot,
-          count: entriesByPath[path]?.length ?? null,
+          count: visibleEntries(path)?.length ?? null,
           pinned: pinned.has(path),
           onHover,
           onToggle,
@@ -423,7 +559,7 @@ export function FilesView() {
       ? nodes.find((n) => n.id === hovered)
       : undefined;
     if (hovered && hoveredNode) {
-      const contents = entriesByPath[hovered] ?? [];
+      const contents = visibleEntries(hovered) ?? [];
       // Folders already shown as bubbles (pinned parent) are not repeated.
       const hidden = pinned.has(hovered)
         ? contents.filter((e) => !e.isDirectory)
@@ -497,13 +633,13 @@ export function FilesView() {
 
     return { nodes, edges };
   }, [
-    entriesByPath,
     pinned,
     hovered,
     dropTarget,
     creatingIn,
     newName,
     folderChildren,
+    visibleEntries,
     onHover,
     onToggle,
     onPin,
@@ -538,6 +674,28 @@ export function FilesView() {
         >
           <RefreshCw size={13} strokeWidth={2} aria-hidden="true" />
           Refresh
+        </button>
+      </div>
+      <div className="sf-files-filters">
+        <span>Show:</span>
+        {KINDS.map((kind) => (
+          <button
+            key={kind.key}
+            type="button"
+            className="sf-filter-pill"
+            aria-pressed={!hiddenKinds.has(kind.key)}
+            onClick={() => toggleKind(kind.key)}
+          >
+            {kind.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="sf-filter-pill"
+          aria-pressed={!hiddenKinds.has("other")}
+          onClick={() => toggleKind("other")}
+        >
+          Other
         </button>
       </div>
       {error && (
