@@ -18,6 +18,45 @@ one click, undo anything. Free, offline, MIT-licensed.
 - **Safe by construction.** Journal-first moves, no deletes, no overwrites,
   full undo. Event-driven watching: ~0% CPU at idle.
 
+## How it works
+
+You draw a flowchart once; Sortflow runs every new file through it forever.
+
+```
+                          ┌─ match ─▶ 📁 Move → ~/Pictures/Screenshots
+📥 Watch ───▶ 🔍 Filter ──┤
+~/Downloads    *.png      └─ else ──▶ 🤖 AI Classify ─┬─ School ──▶ 📁 Move → ~/Docs/School
+                                                      ├─ Receipts ▶ 📁 Move → ~/Docs/Receipts
+                                                      └─ unsure ──▶ (file stays put)
+```
+
+1. **📥 Watch** nodes are entry points. The moment a new file finishes saving
+   into a watched folder, it enters the graph. (Event-driven — no scanning.)
+2. The file travels the wires, answering questions. **🔍 Filter** nodes check
+   extension / name pattern / size / age and route it out the `match` or
+   `else` handle. **🤖 AI Classify** nodes ask a local model which of *your*
+   categories fits and route it out that category's handle.
+3. Reaching a **📁 Move** node doesn't move anything yet — it files a
+   *proposal* in the **Review tray**: "`Screenshot.png` → `Pictures/Screenshots`".
+   The menu-bar ⚑ shows how many proposals await you.
+4. **You approve** (single or bulk). The move is journaled *before* it happens,
+   so **Undo always works**. Approve a rule ~10 times in a row and its Move
+   node offers to go automatic.
+5. Files that dead-end (no wire for their answer) are left untouched. Sortflow
+   never deletes or overwrites — name collisions get a ` (1)` suffix.
+
+Move destinations accept tokens: `~/Docs/{category}/{YYYY}-{MM}` sorts by
+AI category and month automatically.
+
+### Your first pipeline (60 seconds)
+
+1. **Add Watch** → folder `~/Downloads`
+2. **Add Filter** → extensions `.png`
+3. **Add Move** → destination `~/Pictures/Screenshots`
+4. Drag wires: Watch → Filter, then Filter's `match` → Move
+5. **Save & Apply**, drop a `.png` into Downloads, approve it in the tray —
+   watch the dots run the wires.
+
 ## Install
 
 Download the latest `.dmg` from Releases, or build from source:
