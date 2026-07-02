@@ -1,6 +1,7 @@
 import {
   Background,
   BackgroundVariant,
+  ConnectionLineType,
   Controls,
   type Edge,
   ReactFlow,
@@ -90,6 +91,7 @@ function FlowCanvas({
         onSelectionChange={(sel) => setSelected(sel.nodes[0]?.id ?? null)}
         deleteKeyCode={["Backspace", "Delete"]}
         connectionRadius={40}
+        connectionLineType={ConnectionLineType.SmoothStep}
         edgesReconnectable
         onReconnectStart={() => {
           reconnectSucceeded.current = false;
