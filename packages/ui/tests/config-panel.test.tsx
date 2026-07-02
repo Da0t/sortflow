@@ -250,7 +250,7 @@ describe("ConfigPanel: filter age inputs", () => {
     useFlowStore.getState().loadPipeline(demo);
     useFlowStore.getState().setSelected("m1");
     render(<ConfigPanel />);
-    expect(screen.getByText(/fileYYYY/i)).toBeTruthy();
+    expect(screen.getAllByText(/fileYYYY/i).length).toBeGreaterThan(0);
   });
 });
 
@@ -284,5 +284,70 @@ describe("ConfigPanel: date grouping chip", () => {
     expect(
       screen.queryByRole("button", { name: /group into year\/month/i }),
     ).toBeNull();
+  });
+});
+
+describe("ConfigPanel: filter presets", () => {
+  const filterDemo: Pipeline = {
+    nodes: [
+      {
+        id: "f1",
+        kind: "filter",
+        config: { extensions: [".png"] },
+        position: { x: 0, y: 0 },
+      },
+    ],
+    edges: [],
+  };
+
+  it("clicking a preset chip merges its extensions into the filter", () => {
+    useFlowStore.getState().loadPipeline(filterDemo);
+    useFlowStore.getState().setSelected("f1");
+    render(<ConfigPanel />);
+    fireEvent.click(screen.getByRole("button", { name: /^documents$/i }));
+    const cfg = useFlowStore.getState().toPipeline().nodes[0].config as {
+      extensions?: string[];
+    };
+    expect(cfg.extensions).toContain(".pdf");
+    expect(cfg.extensions).toContain(".docx");
+    expect(cfg.extensions).toContain(".png"); // pre-existing kept
+  });
+
+  it("clicking the same preset twice does not duplicate extensions", () => {
+    useFlowStore.getState().loadPipeline(filterDemo);
+    useFlowStore.getState().setSelected("f1");
+    render(<ConfigPanel />);
+    fireEvent.click(screen.getByRole("button", { name: /^images$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^images$/i }));
+    const cfg = useFlowStore.getState().toPipeline().nodes[0].config as {
+      extensions?: string[];
+    };
+    const pngCount = (cfg.extensions ?? []).filter((e) => e === ".png").length;
+    expect(pngCount).toBe(1);
+  });
+});
+
+describe("ConfigPanel: rename pattern field", () => {
+  it("edits the move node's renamePattern", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    render(<ConfigPanel />);
+    const field = screen.getByLabelText(/rename pattern/i) as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "{fileYYYY} {name}" } });
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as MoveConfig & { renamePattern?: string };
+    expect(cfg.renamePattern).toBe("{fileYYYY} {name}");
+  });
+
+  it("clearing the field removes renamePattern", () => {
+    useFlowStore.getState().loadPipeline(demo);
+    useFlowStore.getState().setSelected("m1");
+    render(<ConfigPanel />);
+    const field = screen.getByLabelText(/rename pattern/i) as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "x" } });
+    fireEvent.change(field, { target: { value: "" } });
+    const cfg = useFlowStore.getState().toPipeline().nodes[0]
+      .config as MoveConfig & { renamePattern?: string };
+    expect(cfg.renamePattern).toBeUndefined();
   });
 });

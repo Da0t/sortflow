@@ -20,6 +20,36 @@ export const PROMOTION_THRESHOLD = 10;
 
 const RECENTS_KEY = "sf-recent-destinations";
 
+/** One-click extension bundles so users don't need to know file types. */
+const FILTER_PRESETS: Array<{ label: string; extensions: string[] }> = [
+  {
+    label: "Images",
+    extensions: [".png", ".jpg", ".jpeg", ".gif", ".heic", ".webp", ".svg"],
+  },
+  {
+    label: "Documents",
+    extensions: [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".txt",
+      ".md",
+      ".rtf",
+      ".csv",
+      ".xlsx",
+      ".xls",
+      ".pptx",
+      ".ppt",
+      ".key",
+      ".pages",
+    ],
+  },
+  { label: "Video", extensions: [".mp4", ".mov", ".avi", ".mkv", ".webm"] },
+  { label: "Audio", extensions: [".mp3", ".wav", ".m4a", ".flac", ".aac"] },
+  { label: "Archives", extensions: [".zip", ".rar", ".7z", ".tar", ".gz"] },
+  { label: "Installers", extensions: [".dmg", ".pkg", ".exe", ".msi"] },
+];
+
 function loadRecents(): string[] {
   try {
     return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]") as string[];
@@ -205,6 +235,26 @@ export function ConfigPanel() {
                   })
                 }
               />
+              <div className="sf-chips">
+                {FILTER_PRESETS.map(({ label, extensions }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="sf-chip"
+                    title={extensions.join(" ")}
+                    onClick={() =>
+                      set({
+                        ...c,
+                        extensions: Array.from(
+                          new Set([...(c.extensions ?? []), ...extensions]),
+                        ),
+                      })
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <TextField
                 label="Name pattern"
                 value={c.namePattern ?? ""}
@@ -322,6 +372,19 @@ export function ConfigPanel() {
               >
                 {
                   "Tokens: {category} {YYYY} {MM} {fileYYYY} {fileMM} {fileDD} — file… tokens use the file's own date"
+                }
+              </p>
+              <TextField
+                label="Rename pattern (optional)"
+                value={c.renamePattern ?? ""}
+                onChange={(v) => set({ ...c, renamePattern: v || undefined })}
+              />
+              <p
+                className="sf-hint-muted"
+                style={{ fontSize: 12, color: "var(--sf-text-muted)" }}
+              >
+                {
+                  'e.g. "{fileYYYY}-{fileMM} {name}" renames files as they move; the extension is kept automatically'
                 }
               </p>
               <CheckField
