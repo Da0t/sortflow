@@ -1,5 +1,7 @@
 # Sortflow docs
 
+**[⌂ Sortflow](../README.md)** · [engine](../packages/engine/README.md) · [app](../packages/app/README.md) · [ui](../packages/ui/README.md) · [Changelog](../CHANGELOG.md)
+
 Design documents and implementation plans, written before the code they
 describe.
 

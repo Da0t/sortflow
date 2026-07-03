@@ -20,16 +20,19 @@ proposed moves in one click, undo anything. Free, offline, MIT-licensed.
 - **Local AI, no API keys.** Ambiguous files are classified by
   [Ollama](https://ollama.com) on your machine. No Ollama? Everything still
   works — unclassified files just route to `unsure`.
-- **Safe by construction.** Journal-first moves, no deletes, no overwrites,
-  full undo. Event-driven watching: ~0% CPU at idle.
+- **Safe by construction.** Journal-first moves, no overwrites, full undo —
+  pipelines never delete anything, and the Files page's only delete is an
+  explicit, confirmed move to the macOS Trash. Event-driven watching:
+  ~0% CPU at idle.
 
 ## Features
 
 - **Pipeline library** — multiple named pipelines in tabs; switch freely
   (unsaved edits are stashed automatically), toggle each one on/off, and run
   any number of them simultaneously.
-- **Auto Setup** — scan a messy folder once and get a drafted pipeline for
-  what's actually in it (screenshots, documents, installers, …).
+- **Auto Setup** — tick the folders to scan (Downloads and Desktop by
+  default) and get one drafted pipeline covering what's actually in them
+  (screenshots, documents, installers, …).
 - **Describe It** — type *"GIFs from Downloads go to Desktop/GIFs"* and a
   local Ollama model drafts the pipeline, grounded in your real folder names.
   Drafts load on the canvas for review; nothing runs until you apply.
@@ -46,6 +49,22 @@ proposed moves in one click, undo anything. Free, offline, MIT-licensed.
 - **Tokens** — destinations and rename patterns understand `{category}`,
   `{YYYY}-{MM}`, and file-date tokens like `{fileYYYY}` for date-aware sorting.
 - **Focus mode** — hide every panel and see just the graph.
+- **Files page** — a cascade-column file manager on the same node canvas:
+  click a folder and its contents open in the next column, as many branches
+  as you like, every opened box highlighted as your trail back. Drag
+  anything onto a folder to move it (journaled + undoable), create folders
+  inline, or send one to the macOS Trash. Filter pills hide whole file
+  kinds, and any folder can be muted from the view.
+- **Sort folders too** — a Watch node option routes top-level folders
+  through the graph as single units; AI Classify judges a folder by its
+  name plus a listing of what's inside. Folder moves always wait for your
+  approval, even on automatic rules.
+- **Undo all** — one button in History walks the journal newest-first and
+  puts every moved file back where it came from.
+- **Permissions health check** — a banner warns when macOS is blocking
+  Sortflow from Desktop, Documents, or Downloads, with a one-click recheck.
+- **Unsaved-changes pulse** — the moment the canvas differs from the running
+  pipeline, a hint appears and Save & Apply pulses until you apply.
 - **Menu-bar app** — pending-review badge, Launch at Login, ~0% CPU idle.
 
 ## How it works
@@ -61,7 +80,8 @@ You draw a flowchart once; Sortflow runs every new file through it forever.
 ```
 
 1. **📥 Watch** nodes are entry points. The moment a new file finishes saving
-   into a watched folder, it enters the graph. (Event-driven — no scanning.)
+   into a watched folder, it enters the graph (event-driven — no polling).
+   Optionally they emit top-level folders as sortable units too.
 2. The file travels the wires, answering questions. **🔍 Filter** nodes check
    extension / name pattern / age and route it out the `match` or
    `else` handle. **🤖 AI Classify** nodes ask a local model which of *your*
@@ -71,8 +91,9 @@ You draw a flowchart once; Sortflow runs every new file through it forever.
    The menu-bar ⚑ shows how many proposals await you.
 4. **You approve** (single or bulk — and rejected proposals can be restored).
    The move is journaled *before* it happens, so **Undo always works**.
-   Approve a rule ~10 times in a row and a "Make automatic" button appears in
-   its Move node's settings.
+   Approve a rule ~10 times in a row and a "Make automatic" button appears
+   in its Move node's settings. Folder moves are the one exception:
+   they always wait for review, even on automatic rules.
 5. Files that dead-end (no wire for their answer) are left untouched. Sortflow
    never deletes or overwrites — name collisions get a ` (1)` suffix.
 
@@ -116,6 +137,17 @@ brew install ollama && brew services start ollama
 ollama pull llama3.2:3b
 ```
 
+## Documentation
+
+| Doc | What's inside |
+| --- | --- |
+| [`packages/engine/README.md`](packages/engine/README.md) | The pure-TS core: routing, journal-first moves, AI classify, library, preview, drafting — with a module map and design decisions |
+| [`packages/app/README.md`](packages/app/README.md) | The Electron main process: lifecycle, the full IPC surface, packaging |
+| [`packages/ui/README.md`](packages/ui/README.md) | The React renderer: canvas, panels, Files page, store, testing notes |
+| [`CHANGELOG.md`](CHANGELOG.md) | Everything shipped, release by release |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Gates, house style, and the safety invariants PRs must keep |
+| [`docs/`](docs/README.md) | Original design specs and implementation plans |
+
 ## Architecture
 
 Sortflow is a pnpm monorepo with three packages and a hard rule: **all domain
@@ -127,7 +159,7 @@ moving, undo) is unit-tested without booting an app.
 | --- | --- | --- |
 | `packages/engine` | anywhere (pure TS) | Watching, graph routing, AI classify, proposals, journal-first moves & undo, pipeline library, dry-run preview, NL→pipeline drafting |
 | `packages/app` | Electron **main** process | Window + menu-bar item, typed IPC, hosts the engine, persists everything to disk |
-| `packages/ui` | Electron **renderer** | React Flow canvas, palette, pipeline tabs, config panel, review tray — sandboxed, talks only through the preload bridge |
+| `packages/ui` | Electron **renderer** | React Flow canvas, palette, pipeline tabs, config panel, review tray + history, Files page (cascade file manager) — sandboxed, talks only through the preload bridge |
 
 ### System overview
 
@@ -139,7 +171,9 @@ flowchart LR
         Tabs["Pipeline tabs<br/>switch · rename · enable · delete"]
         Canvas["Canvas — the graph editor<br/>Watch · Filter · AI Classify · Move"]
         Config["Config panel<br/>node settings · Preview · Save & Apply"]
-        ReviewUI["Review tray + History<br/>approve · reject · rename · undo"]
+        ReviewUI["Review tray + History<br/>approve/reject (bulk) · restore rejected<br/>rename · undo · undo all"]
+        FilesPage["Files page<br/>cascade file manager: move · create · trash"]
+        Perms["Permissions banner<br/>macOS folder-access health check"]
         Store["zustand store<br/>(graph state)"]
         Palette --> Store
         Tabs --> Store
@@ -151,7 +185,7 @@ flowchart LR
 
     subgraph app["Main process — packages/app (Electron)"]
         direction TB
-        IPC["IPC handlers<br/>pipeline: set / preview / generate<br/>pipelines: switch / create / enable …<br/>fs: isDirectory / listFolders · dialog: pickFolder"]
+        IPC["IPC handlers<br/>pipeline: set / preview / generate<br/>pipelines: switch / create / enable …<br/>proposals · journal (undo all) · streak<br/>fs: list / create / trash / checkAccess · files: move"]
         Library["PipelineLibrary<br/>named pipelines, one active (editor),<br/>any number enabled (running)"]
         Host["Engine host<br/>merges all enabled pipelines into one graph,<br/>hot-swaps the Engine on every apply"]
         MenuBar["Menu-bar ⚑<br/>pending-review badge · Launch at Login"]
@@ -200,11 +234,11 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    New["📄 New file finishes saving in a watched folder"]
+    New["📄 New file finishes saving in a watched folder<br/>(top-level folders too, if the Watch sorts folders)"]
     New --> Route["File walks the wires:<br/>each 🔍 Filter answers match / else —<br/>🤖 AI Classify asks local Ollama which category fits"]
     Route -->|"reaches a 📁 Move node"| Proposal["Proposal filed:<br/>filename → destination (date/category tokens expanded)"]
     Route -->|"dead end, or unsure with no wire"| Stay["File stays put — Sortflow never deletes"]
-    Proposal -->|"Move node is automatic<br/>(or promoted after 10 straight approvals)"| Move["Journal-first move:<br/>1 write intent · 2 move the file · 3 write done<br/>name collisions get a (1) suffix"]
+    Proposal -->|"Move node is automatic<br/>(files only — folders always go to review)"| Move["Journal-first move:<br/>1 write intent · 2 move the file · 3 write done<br/>name collisions get a (1) suffix"]
     Proposal -->|"manual (default)"| Review["Review tray:<br/>approve · rename · reject — single or bulk"]
     Review -->|"approve"| Move
     Review -->|"reject"| Stay
@@ -214,7 +248,7 @@ flowchart TB
 
 ### End to end, in words
 
-- **Edit time.** You draw on the canvas (or let *Auto Setup* scan a folder /
+- **Edit time.** You draw on the canvas (or let *Auto Setup* scan your checked folders /
   *Describe It* draft a graph via Ollama). The graph lives in the renderer's
   zustand store until **Save & Apply**, which sends it over IPC: the main
   process validates the *merged* graph of every enabled pipeline, persists it
@@ -233,8 +267,10 @@ flowchart TB
   (classify falls back to `unsure`; drafting shows the error and retries with
   the rejection reason fed back to the model).
 - **Safety invariants.** Moves are serialized (no two moves race), journaled
-  before execution, collision-suffixed, and never destructive — no deletes,
-  no overwrites, ever. The renderer is fully sandboxed; only the typed
+  before execution, collision-suffixed, and never silently destructive — no
+  overwrites ever, and the only deletion anywhere is the Files page's
+  explicit, confirmed move to the macOS Trash. Manual Files-page moves run
+  through the same journal as pipeline moves. The renderer is fully sandboxed; only the typed
   preload bridge can reach the filesystem.
 
 See `docs/superpowers/specs/` for the original design doc, including the v2
@@ -246,7 +282,7 @@ roadmap (embedding-based category suggestions from the unsure pile).
 packages/
   engine/   pure-TS domain core — watching, routing, moves, undo, AI
   app/      Electron main process — window, tray, IPC, engine host
-  ui/       React renderer — canvas, palette, tabs, review tray
+  ui/       React renderer — canvas, palette, tabs, review tray, Files page
 docs/       design specs and implementation plans
 ```
 
