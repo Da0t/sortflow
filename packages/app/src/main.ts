@@ -1,8 +1,22 @@
+import { access, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Engine, PipelineLibrary, mergePipelines } from "@sortflow/engine";
 import { BrowserWindow, app } from "electron";
 import { registerIpc } from "./ipc";
 import { createTray } from "./tray";
+
+/** Opt into launch-at-login once, on first run. Sortflow only sorts while
+ * it's running, so a tray app the user forgets to reopen sorts nothing.
+ * The tray checkbox still turns it off — this never re-forces it. */
+async function initLoginItem(dataDir: string): Promise<void> {
+  const marker = join(dataDir, ".login-item-initialized");
+  try {
+    await access(marker);
+  } catch {
+    app.setLoginItemSettings({ openAtLogin: true });
+    await writeFile(marker, "1", "utf8").catch(() => {});
+  }
+}
 
 let win: BrowserWindow | null = null;
 let updateBadge: (count: number) => void = () => {};
@@ -39,6 +53,7 @@ app.on("before-quit", () => {
 
 app.whenReady().then(async () => {
   const dataDir = app.getPath("userData");
+  await initLoginItem(dataDir);
   const library = await PipelineLibrary.load(dataDir);
   const engine = new Engine({ dataDir });
   const { pendingCount } = registerIpc(
